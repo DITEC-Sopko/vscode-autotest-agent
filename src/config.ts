@@ -1,0 +1,197 @@
+import * as vscode from 'vscode';
+
+/**
+ * Konfiguračná štruktúra pre Autotest Agent
+ */
+export interface AutotestConfig {
+    userRole: 'developer' | 'tester' | 'unknown';
+    appUrl: string;
+    appType: 'web' | 'desktop' | 'mobile';
+    environment: 'local' | 'remote';
+    tfsEnabled: boolean;
+    tfsOrganization?: string;
+    tfsProject?: string;
+    skipAvailabilityCheck?: boolean;
+    preferredModelId?: string;
+    loginRequired?: boolean;
+    username?: string;
+    headlessMode?: boolean;
+    slowMo?: number;
+}
+
+/**
+ * Načíta konfiguráciu z VS Code storage
+ */
+export function loadConfiguration(context: vscode.ExtensionContext): AutotestConfig {
+    const userRole = context.globalState.get<string>('userRole') as 'developer' | 'tester' | 'unknown' || 'unknown';
+    const envConfig = context.workspaceState.get<{
+        url: string;
+        appType: string;
+        environment: string;
+        skipAvailabilityCheck?: boolean;
+    }>('envConfig');
+    
+    const tfsConfig = context.workspaceState.get<{
+        enabled: boolean;
+        organization?: string;
+        project?: string;
+    }>('tfsConfig');
+    
+    const loginConfig = context.workspaceState.get<{
+        required: boolean;
+        username?: string;
+    }>('loginConfig');
+    
+    const debugConfig = context.workspaceState.get<{
+        headless?: boolean;
+        slowMo?: number;
+    }>('debugConfig');
+    
+    const preferredModelId = context.globalState.get<string>('preferredModelId');
+
+    return {
+        userRole,
+        appUrl: envConfig?.url || 'http://localhost:3000',
+        appType: (envConfig?.appType as any) || 'web',
+        environment: (envConfig?.environment as any) || 'local',
+        tfsEnabled: tfsConfig?.enabled || false,
+        tfsOrganization: tfsConfig?.organization,
+        tfsProject: tfsConfig?.project,
+        skipAvailabilityCheck: envConfig?.skipAvailabilityCheck || false,
+        preferredModelId,
+        loginRequired: loginConfig?.required || false,
+        username: loginConfig?.username,
+        headlessMode: debugConfig?.headless !== undefined ? debugConfig.headless : true,
+        slowMo: debugConfig?.slowMo || 0
+    };
+}
+
+/**
+ * Uloží environment konfiguráciu
+ */
+export async function saveEnvironmentConfig(
+    context: vscode.ExtensionContext,
+    config: {
+        url: string;
+        appType: string;
+        environment: string;
+        skipAvailabilityCheck?: boolean;
+    }
+): Promise<void> {
+    await context.workspaceState.update('envConfig', config);
+}
+
+/**
+ * Uloží user role do global state
+ */
+export async function saveUserRole(
+    context: vscode.ExtensionContext,
+    role: 'developer' | 'tester'
+): Promise<void> {
+    await context.globalState.update('userRole', role);
+    // Synchronizovať medzi zariadeniami
+    context.globalState.setKeysForSync(['userRole']);
+}
+
+/**
+ * Uloží TFS konfiguráciu
+ */
+export async function saveTfsConfig(
+    context: vscode.ExtensionContext,
+    config: {
+        enabled: boolean;
+        organization?: string;
+        project?: string;
+    }
+): Promise<void> {
+    await context.workspaceState.update('tfsConfig', config);
+}
+
+/**
+ * Uloží TFS PAT token do secure storage
+ */
+export async function saveTfsPat(
+    context: vscode.ExtensionContext,
+    pat: string
+): Promise<void> {
+    await context.secrets.store('tfs-pat', pat);
+}
+
+/**
+ * Načíta TFS PAT token zo secure storage
+ */
+export async function getTfsPat(
+    context: vscode.ExtensionContext
+): Promise<string | undefined> {
+    return await context.secrets.get('tfs-pat');
+}
+
+/**
+ * Uloží preferovaný AI model
+ */
+export async function savePreferredModel(
+    context: vscode.ExtensionContext,
+    modelId: string
+): Promise<void> {
+    await context.globalState.update('preferredModelId', modelId);
+    context.globalState.setKeysForSync(['preferredModelId']);
+}
+
+/**
+ * Uloží login konfiguráciu
+ */
+export async function saveLoginConfig(
+    context: vscode.ExtensionContext,
+    config: {
+        required: boolean;
+        username?: string;
+    }
+): Promise<void> {
+    await context.workspaceState.update('loginConfig', config);
+}
+
+/**
+ * Uloží login heslo do secure storage
+ */
+export async function saveLoginPassword(
+    context: vscode.ExtensionContext,
+    password: string
+): Promise<void> {
+    await context.secrets.store('login-password', password);
+}
+
+/**
+ * Uloží debug konfiguráciu (headless mode, slowMo)
+ */
+export async function saveDebugConfig(
+    context: vscode.ExtensionContext,
+    config: {
+        headless?: boolean;
+        slowMo?: number;
+    }
+): Promise<void> {
+    await context.workspaceState.update('debugConfig', config);
+}
+
+/**
+ * Načíta login heslo zo secure storage
+ */
+export async function getLoginPassword(
+    context: vscode.ExtensionContext
+): Promise<string | undefined> {
+    return await context.secrets.get('login-password');
+}
+
+/**
+ * Resetuje všetku konfiguráciu
+ */
+export async function resetConfiguration(context: vscode.ExtensionContext): Promise<void> {
+    await context.globalState.update('userRole', undefined);
+    await context.globalState.update('preferredModelId', undefined);
+    await context.workspaceState.update('envConfig', undefined);
+    await context.workspaceState.update('tfsConfig', undefined);
+    await context.workspaceState.update('loginConfig', undefined);
+    await context.workspaceState.update('debugConfig', undefined);
+    await context.secrets.delete('tfs-pat');
+    await context.secrets.delete('login-password');
+}

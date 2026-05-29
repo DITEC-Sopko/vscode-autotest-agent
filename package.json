@@ -1,15 +1,17 @@
 {
   "name": "autotest-agent",
-  "displayName": "autotest-agent",
-  "description": "AI Agent na automatizované testovanie",
-  "version": "0.0.1",
+  "displayName": "Autotest Agent",
+  "description": "AI-powered automated testing with vision analysis for VS Code",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.120.0"
   },
   "categories": [
-    "Other"
+    "Testing"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "*"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "chatParticipants": [
@@ -17,7 +19,55 @@
         "id": "autotest.agent",
         "name": "autotest",
         "description": "AI Agent na automatizované testovanie a vizuálnu kontrolu",
-        "isSticky": true
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "init",
+            "description": "Inicializovať konfiguráciu agenta"
+          },
+          {
+            "name": "model",
+            "description": "Vybrať AI model s vision/OCR podporou"
+          },
+          {
+            "name": "debug",
+            "description": "Prepnúť viditeľný/neviditeľný browser"
+          },
+          {
+            "name": "test",
+            "description": "Testovať bug podľa manuálneho popisu"
+          },
+          {
+            "name": "regenerate",
+            "description": "Regenerovať test script zo scenára"
+          },
+          {
+            "name": "history",
+            "description": "Zobraziť históriu testov"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "autotest.init",
+        "title": "Autotest: Inicializovať konfiguráciu"
+      },
+      {
+        "command": "autotest.reconfigure",
+        "title": "Autotest: Resetovať konfiguráciu"
+      },
+      {
+        "command": "autotest.tfsSetup",
+        "title": "Autotest: Nastaviť TFS pripojenie"
+      },
+      {
+        "command": "autotest.cleanup",
+        "title": "Autotest: Zmazať screenshoty a Pushnúť na Git"
+      },
+      {
+        "command": "autotest.keepScreenshots",
+        "title": "Autotest: Ponechať screenshoty"
       }
     ]
   },
@@ -46,6 +96,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "azure-devops-node-api": "^12.5.0",
     "fs": "^0.0.1-security",
     "path": "^0.12.7"
   }

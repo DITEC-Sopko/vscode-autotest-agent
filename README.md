@@ -1,51 +1,221 @@
-# autotest-agent README
+# Autotest Agent 🤖
 
-This is the README for your extension "autotest-agent". After writing up a brief description, we recommend including the following sections.
+AI-powered automatizované testovanie pre VS Code s GitHub Copilot vision API.
 
-## Features
+## 🎯 Pre koho je tento agent?
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### **👨‍💻 Developer Workflow** (aktuálny focus)
+- Automatické testovanie bugov z TFS/Azure DevOps
+- Vizuálna kontrola či je bug opravený
+- Generovanie Playwright testov pomocou AI
+- Iteratívne ladenie testov cez test scenáre
 
-For example if there is an image subfolder under your extension project workspace:
+### **🧪 Tester Workflow** (budúca funkcionalita)
+- Vytváranie test cases
+- Bug reporting do TFS
+- Test suite management
+- Regression testing
 
-\!\[feature X\]\(images/feature-x.png\)
+---
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## 📦 Inštalácia
 
-## Requirements
+1. **Nainštaluj extension** v VS Code
+2. **GitHub Copilot** subscription (pre AI modely s vision support)
+3. **Playwright** sa nainštaluje automaticky pri prvom teste
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+---
 
-## Extension Settings
+## 🚀 Quick Start (Developer)
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+### 1. **Prvá konfigurácia:**
+```
+@autotest init
+```
+- Vyber rolu: **Developer**
+- Nastav URL aplikácie: `http://localhost:3000` alebo tvoj server
+- Pridaj login credentials ak aplikácia vyžaduje prihlásenie
+- Pripoj TFS/Azure DevOps (voliteľné)
 
-For example:
+### 2. **Vyber AI model s vision support:**
+```
+@autotest model
+```
+Odporúčame GPT-4o alebo model s "vision" v názve.
 
-This extension contributes the following settings:
+### 3. **Zapni viditeľný browser (pre debugging):**
+```
+@autotest debug
+→ Vyber: 👁️ Viditeľný browser (Headed)
+```
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+### 4. **Testuj bug:**
+```
+@autotest over bug 622116
+```
+alebo bez TFS:
+```
+@autotest test
+```
 
-## Known Issues
+---
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+## 📁 Štruktúra generovaných testov
 
-## Release Notes
+```
+váš-projekt/                    ← Váš VS Code workspace
+├── .gitignore                  ← Automaticky updatovaný! ✨
+├── src/
+├── package.json
+└── autotest/                   ← Automaticky v .gitignore
+    └── bug_622116/
+        ├── test_scenario.md     ← Ľudsky čitateľné kroky (editovateľné!)
+        ├── test.spec.js         ← Playwright script (auto-generated)
+        ├── test_result.md       ← 🆕 Detail report (čo zlyhalo, prečo)
+        ├── success_screenshot.png  ← Ak test prejde
+        └── error_screenshot.png    ← Ak test zlyhá
+```
 
-Users appreciate release notes as you update your extension.
+**Automatická Git integrácia:** 🎉
+- Pri **prvom teste** extension automaticky pridá `autotest/` do `.gitignore`
+- Ak `.gitignore` neexistuje, vytvorí ho
+- Ak už existuje, pridá autotest entries na koniec
+- **Nemusíš nič robiť manuálne!**
 
-### 1.0.0
+📖 *Detaily: [GITIGNORE_AUTO_UPDATE.md](./GITIGNORE_AUTO_UPDATE.md)*
 
-Initial release of ...
+---
 
-### 1.0.1
+---
 
-Fixed issue #.
+## 🔄 Workflow pri zlyhaniach
 
-### 1.1.0
+1. **Test zlyhá** → automaticky sa vytvorí `error_screenshot.png`
+2. **AI analyzuje** screenshot a povie čo je problém
+3. **test_result.md** obsahuje detailný report:
+   - Kde test zlyhala
+   - Čo nenašla (tlačidlo, tabuľka prázdna, ...)
+   - Console output
+   - Návrh na opravu
+4. **Upravíš** `test_scenario.md` (napr. zmeníš názov buttonu)
+5. **Regeneruješ** test:
+   ```
+   @autotest regenerate bug_622116
+   ```
+6. Test sa znova vygeneruje a spustí podľa upraveného scenára
 
-Added features X, Y, and Z.
+---
+
+## 🎯 Inteligentné Features
+
+### **Flexibilné selektory:**
+- AI automaticky skúša viacero spôsobov nájsť element:
+  - Text v buttone: `"Detail"`, `"Detaily"`, `"detail"`
+  - Icon classes: `icon-detail`, `fa-info-circle`
+  - ARIA labels: `aria-label="Show detail"`
+- Ak scenár hovorí "zobrazí detail", AI hľadá všetky možnosti automaticky
+
+### **Smart defaults:**
+- "Vyber klienta" → automaticky vyberie **prvého v tabuľke**
+- "Otvor dokument" → prvý v zozname
+- "Zadaj dátum" → dnešný dátum
+- Nemusíš špecifikovať každý detail!
+
+### **Validácie:**
+- AI automaticky kontroluje:
+  - Či je tabuľka naplnená (alebo prázdna)
+  - Či sa panel zobrazil
+  - Počet riadkov v grid
+- Console output v `test_result.md` ukazuje presné čísla
+
+---
+
+## 📋 Všetky príkazy
+
+| Príkaz | Popis |
+|--------|-------|
+| `@autotest init` | Inicializácia konfigurácie |
+| `@autotest model` | Výber AI modelu s vision support |
+| `@autotest debug` | Prepnutie viditeľný/neviditeľný browser |
+| `@autotest over bug 123` | Testovať bug z TFS |
+| `@autotest test` | Testovať bez TFS (manuálny popis) |
+| `@autotest regenerate bug_123` | Regenerovať test zo scenára |
+| `@autotest history` | História testov |
+
+---
+
+## ⚙️ Konfigurácia
+
+### **TFS/Azure DevOps:**
+- Organization URL: `http://tfs-server:8080/tfs/project` alebo `https://dev.azure.com/org`
+- PAT token s read permissions
+- Automatické načítavanie bug detailov
+
+### **Login Credentials:**
+- Username a heslo sa ukladajú bezpečne (SecretStorage)
+- Automaticky sa použijú v každom teste
+- Každý workspace má vlastné credentials
+
+### **Debug módy:**
+- **Viditeľný (Headed):** Vidíš browser, slowMo 100ms
+- **Pomalý debug:** Každá akcia trvá 500ms
+- **Rýchly (Headless):** Na pozadí, bez UI
+
+---
+
+## 🔧 Requirements
+
+- VS Code 1.120.0+
+- GitHub Copilot subscription
+- Node.js (pre Playwright)
+- Prístup k TFS/Azure DevOps (voliteľné)
+
+---
+
+## 🐛 Troubleshooting
+
+### Test nenájde element?
+1. Zapni viditeľný mód: `@autotest debug`
+2. Sleduj čo sa deje v browseri
+3. Uprav `test_scenario.md`
+4. Regeneruj: `@autotest regenerate bug_XXX`
+
+### Playwright sa nenainštaloval?
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+### TFS pripojenie zlyhá?
+- Skontroluj URL (HTTP aj HTTPS funguje)
+- Validuj PAT token permissions
+- Skús `@autotest init` znova
+
+---
+
+## 📝 Developer Tips
+
+- **Test scenáre sú editovateľné** - nemusíš meniť JavaScript
+- **Error screenshoty** ti povedia presne kde test zlyhala
+- **Vision AI** analyzuje výsledky automaticky
+- **Iteruj rýchlo:** uprav scenár → regeneruj → testuj
+
+---
+
+## 🎯 Roadmap
+
+- [ ] Tester workflow (test case management)
+- [ ] Bug reporting do TFS s attachmentami
+- [ ] Test suite organization
+- [ ] CI/CD integrácia
+- [ ] Multi-browser testing
+- [ ] Paralelné spúšťanie testov
+
+---
+
+## 📄 Licencia
+
+MIT
 
 ---
 

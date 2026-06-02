@@ -12,7 +12,8 @@ export interface AutotestConfig {
     tfsOrganization?: string;
     tfsProject?: string;
     skipAvailabilityCheck?: boolean;
-    preferredModelId?: string;
+    preferredCodeModelId?: string;
+    preferredVisionModelId?: string;
     loginRequired?: boolean;
     username?: string;
     headlessMode?: boolean;
@@ -47,7 +48,10 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         slowMo?: number;
     }>('debugConfig');
     
-    const preferredModelId = context.globalState.get<string>('preferredModelId');
+    // Backward compat: fall back to old single preferredModelId for code model
+    const preferredCodeModelId = context.globalState.get<string>('preferredCodeModelId')
+        || context.globalState.get<string>('preferredModelId');
+    const preferredVisionModelId = context.globalState.get<string>('preferredVisionModelId');
 
     return {
         userRole,
@@ -58,7 +62,8 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         tfsOrganization: tfsConfig?.organization,
         tfsProject: tfsConfig?.project,
         skipAvailabilityCheck: envConfig?.skipAvailabilityCheck || false,
-        preferredModelId,
+        preferredCodeModelId,
+        preferredVisionModelId,
         loginRequired: loginConfig?.required || false,
         username: loginConfig?.username,
         headlessMode: debugConfig?.headless !== undefined ? debugConfig.headless : true,
@@ -127,14 +132,25 @@ export async function getTfsPat(
 }
 
 /**
- * Uloží preferovaný AI model
+ * Uloží preferovaný model na generovanie kódu/scenárov
  */
-export async function savePreferredModel(
+export async function savePreferredCodeModel(
     context: vscode.ExtensionContext,
     modelId: string
 ): Promise<void> {
-    await context.globalState.update('preferredModelId', modelId);
-    context.globalState.setKeysForSync(['preferredModelId']);
+    await context.globalState.update('preferredCodeModelId', modelId);
+    context.globalState.setKeysForSync(['preferredCodeModelId']);
+}
+
+/**
+ * Uloží preferovaný model na analýzu obrázkov (vision)
+ */
+export async function savePreferredVisionModel(
+    context: vscode.ExtensionContext,
+    modelId: string
+): Promise<void> {
+    await context.globalState.update('preferredVisionModelId', modelId);
+    context.globalState.setKeysForSync(['preferredVisionModelId']);
 }
 
 /**
@@ -188,6 +204,8 @@ export async function getLoginPassword(
 export async function resetConfiguration(context: vscode.ExtensionContext): Promise<void> {
     await context.globalState.update('userRole', undefined);
     await context.globalState.update('preferredModelId', undefined);
+    await context.globalState.update('preferredCodeModelId', undefined);
+    await context.globalState.update('preferredVisionModelId', undefined);
     await context.workspaceState.update('envConfig', undefined);
     await context.workspaceState.update('tfsConfig', undefined);
     await context.workspaceState.update('loginConfig', undefined);

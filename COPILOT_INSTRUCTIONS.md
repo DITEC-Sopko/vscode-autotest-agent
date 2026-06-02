@@ -84,6 +84,14 @@ autotest/                       ← V .gitignore
 - [ ] Regression testing automation
 - [ ] Test run reports (PDF export)
 
+## 🖥️ Desktop testovanie (dlhodobý plán):
+
+- [ ] Podpora natívnych Windows aplikácií (WPF, WinForms, .NET MAUI)
+- [ ] Integrácia Appium + WinAppDriver (WebDriver protokol)
+- [ ] Auto-inštalácia Appium cez npm, manuálny krok pre WinAppDriver .msi
+- [ ] Generovanie Appium testov miesto Playwright pre appType = 'desktop'
+- [ ] Poznámka: Playwright funguje len pre web/Electron, nie pre čisto natívne desktop appky
+
 ---
 
 ## 🔧 Tech Stack

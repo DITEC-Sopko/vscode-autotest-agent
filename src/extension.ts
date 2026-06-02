@@ -11,7 +11,8 @@ import {
     saveTfsPat,
     getTfsPat,
     resetConfiguration,
-    savePreferredModel,
+    savePreferredCodeModel,
+    savePreferredVisionModel,
     saveLoginConfig,
     saveLoginPassword,
     getLoginPassword,
@@ -110,14 +111,18 @@ async function ensurePlaywrightInstalled(workspacePath: string, response: vscode
 }
 
 /**
- * Vyber AI model s vision capabilities
+ * Vyber AI model
+ * @param purpose - 'code' pre generovanie testov/scenárov, 'vision' pre analýzu obrázkov
+ * @param forceSelect - ak true, vždy zobraz picker (ignoruj uloženú voľbu)
  */
-async function selectAIModel(context: vscode.ExtensionContext): Promise<vscode.LanguageModelChat | null> {
+async function selectAIModel(context: vscode.ExtensionContext, purpose: 'code' | 'vision' = 'code', forceSelect = false): Promise<vscode.LanguageModelChat | null> {
     const config = loadConfiguration(context);
     
-    // Ak je už vybraný model, skús ho použiť
-    if (config.preferredModelId) {
-        const models = await vscode.lm.selectChatModels({ id: config.preferredModelId });
+    const savedId = purpose === 'code' ? config.preferredCodeModelId : config.preferredVisionModelId;
+
+    // Ak je už vybraný model a nevynucujeme výber, skús ho použiť
+    if (!forceSelect && savedId) {
+        const models = await vscode.lm.selectChatModels({ id: savedId });
         if (models.length > 0) {
             return models[0];
         }
@@ -130,37 +135,42 @@ async function selectAIModel(context: vscode.ExtensionContext): Promise<vscode.L
         vscode.window.showErrorMessage('Nenašli sa žiadne dostupné AI modely. Uisti sa, že máš aktívne GitHub Copilot subscription.');
         return null;
     }
-    
-    // Filtruj len modely s vision capabilities (image input support)
-    const visionModels = allModels.filter(model => {
-        // Skontroluj či model podporuje image input podľa ID alebo family
+
+    // Pre vision: filtruj modely s image support
+    const visionCapableModels = allModels.filter(model => {
         const modelIdLower = model.id.toLowerCase();
         const familyLower = model.family.toLowerCase();
-        
-        // GPT-4 modely zvyčajne majú vision support
-        // Hľadáme v názve "gpt-4", "vision", "4o" atď
-        const supportsVision = modelIdLower.includes('gpt-4') || 
-                              modelIdLower.includes('vision') ||
-                              modelIdLower.includes('4o') ||
-                              familyLower.includes('gpt-4') ||
-                              familyLower.includes('vision');
-        return supportsVision;
+        return modelIdLower.includes('gpt-4') ||
+               modelIdLower.includes('vision') ||
+               modelIdLower.includes('4o') ||
+               modelIdLower.includes('claude') ||
+               familyLower.includes('gpt-4') ||
+               familyLower.includes('vision') ||
+               familyLower.includes('claude');
     });
-    
-    // Ak nie sú vision modely, použi akýkoľvek dostupný
-    const availableModels = visionModels.length > 0 ? visionModels : allModels;
+
+    const availableModels = purpose === 'vision'
+        ? (visionCapableModels.length > 0 ? visionCapableModels : allModels)
+        : allModels;
+
+    const title = purpose === 'code'
+        ? 'Autotest - Model na generovanie testov a scenárov'
+        : 'Autotest - Model na analýzu obrázkov (Vision)';
+    const placeHolder = purpose === 'code'
+        ? 'Vyber model na generovanie kódu (napr. claude, gpt-4o, o3...):'
+        : 'Vyber model na analýzu screenshotov (musí podporovať vision):';
     
     // Ponúkni používateľovi výber
-    const modelChoices = availableModels.map(model => ({
+    const modelChoices = allModels.map(model => ({
         label: model.name || model.id,
         description: `${model.vendor} - ${model.family || 'N/A'}`,
-        detail: visionModels.includes(model) ? '✓ Podporuje vision/OCR' : 'Základný model',
+        detail: visionCapableModels.includes(model) ? '✓ Podporuje vision/OCR' : 'Kódovací model',
         model: model
     }));
     
     const selected = await vscode.window.showQuickPick(modelChoices, {
-        placeHolder: 'Vyber AI model pre testovanie (odporúčame model s vision support):',
-        title: 'Autotest Agent - Výber AI Modelu',
+        placeHolder,
+        title,
         ignoreFocusOut: true
     });
     
@@ -169,9 +179,13 @@ async function selectAIModel(context: vscode.ExtensionContext): Promise<vscode.L
         return availableModels[0];
     }
     
-    // Ulož výber
-    await savePreferredModel(context, selected.model.id);
-    vscode.window.showInformationMessage(`✅ Model nastavený: ${selected.label}`);
+    // Ulož výber podľa účelu
+    if (purpose === 'code') {
+        await savePreferredCodeModel(context, selected.model.id);
+    } else {
+        await savePreferredVisionModel(context, selected.model.id);
+    }
+    vscode.window.showInformationMessage(`✅ ${purpose === 'code' ? 'Kódovací model' : 'Vision model'} nastavený: ${selected.label}`);
     
     return selected.model;
 }
@@ -459,15 +473,15 @@ async function runAutomatedTest(
     response.markdown(`⚙️ Generujem Playwright automatizovaný test...\n\n`);
 
     try {
-        // Vyber AI model s vision support
-        const model = await selectAIModel(context);
+        // Vyber kódovací model na generovanie testu
+        const model = await selectAIModel(context, 'code');
         
         if (!model) {
             response.markdown(`*Chyba: Nenašiel sa AI model. Uisti sa, že máš aktívne GitHub Copilot subscription a si prihlásený.*`);
             return;
         }
         
-        response.markdown(`🤖 Používam model: **${model.name || model.id}** (${model.vendor})\n\n`);
+        response.markdown(`🤖 Kódovací model: **${model.name || model.id}** (${model.vendor})\n\n`);
 
         // Načítať login credentials ak sú nastavené
         let loginCredentials = '';
@@ -506,28 +520,45 @@ Teraz pokračuj s testovaním bugu.`;
             }
         }
 
-        // Generovanie test scenára
-        response.markdown(`📝 **Vytváram test scenár...**\n\n`);
+          // Ensure workspace path and optionally load project overview
+          const workspaceFolders = vscode.workspace.workspaceFolders;
+          const workspacePath = workspaceFolders && workspaceFolders[0] ? workspaceFolders[0].uri.fsPath : process.cwd();
+          let projectOverview = '';
+          try {
+                const overviewPath = path.join(workspacePath, 'autotest', 'project_overview.md');
+                if (fs.existsSync(overviewPath)) {
+                     projectOverview = fs.readFileSync(overviewPath, 'utf-8');
+                     response.markdown(`🗂️ Načítaný project overview: \`autotest/project_overview.md\`\n\n`);
+                }
+          } catch (e) {
+                // ignore
+          }
+
+          // Generovanie test scenára
+          response.markdown(`📝 **Vytváram test scenár...**\n\n`);
         
-        const scenarioPrompt = `
+          const scenarioPrompt = `
 Si expert na QA. Vytvor detaílný test scenár (v markdown formáte) pre tento bug: "${bugDescription}".
+
+Project overview:
+${projectOverview}
 
 Test bude bežať na aplikácii: ${config.appUrl}
 ${config.loginRequired ? `\nAPLIKÁCIA VYŽADUJE PRIHLÁSENIE - začni prihlásením.` : ''}
 
 DÔLEŽITÉ PRAVIDLÁ:
 1. Ak bug/popis NEUVÁDZA konkrétne údaje (napr. "ktorého klienta vybrať"), použi DEFAULT stratégiu:
-   - "Vyber klienta" → "Vyber prvého klienta v tabuľke"
-   - "Otvor dokument" → "Otvor prvý dokument v zozname"
-   - "Zadaj dátum" → "Zadaj dnešný dátum"
+    - "Vyber klienta" → "Vyber prvého klienta v tabuľke"
+    - "Otvor dokument" → "Otvor prvý dokument v zozname"
+    - "Zadaj dátum" → "Zadaj dnešný dátum"
 
 2. Ak bug hovorí o tlačidle/akcii VŠEOBECNE (napr. "zobrazí detail"), špecifikuj ČO hľadať:
-   - "Zobrazí detail klienta" → "Klikni na tlačidlo/link 'Detail' alebo ikonu detail (class 'icon-detail')"
-   - "Filtruje záznamy" → "Klikni na tlačidlo 'Filter' alebo ikonu filtra"
+    - "Zobrazí detail klienta" → "Klikni na tlačidlo/link 'Detail' alebo ikonu detail (class 'icon-detail')"
+    - "Filtruje záznamy" → "Klikni na tlačidlo 'Filter' alebo ikonu filtra"
 
 3. Pre VALIDÁCIE:
-   - Ak má byť tabuľka/grid naplnená, špecifikuj: "Skontroluj že tabuľka obsahuje aspoň 1 riadok"
-   - Ak má byť prázdna: "Skontroluj že tabuľka je prázdna"
+    - Ak má byť tabuľka/grid naplnená, špecifikuj: "Skontroluj že tabuľka obsahuje aspoň 1 riadok"
+    - Ak má byť prázdna: "Skontroluj že tabuľka je prázdna"
 
 Formát scenára:
 # Test Scenár: [Názov]
@@ -573,13 +604,28 @@ Vráť IBA markdown scenár, žiadny iný text.
         
         DÔLEŽITÉ POŽIADAVKY:
         1. Browser launch: const browser = await chromium.launch({ headless: ${config.headlessMode}, slowMo: ${config.slowMo} });
-        2. Obal CEĽÝ test do try-catch bloku
-        3. V catch bloku:
+        2. Po launchi vytvor context s veľkým viewportom: const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } }); const page = await context.newPage();
+        3. Obal CEĽÝ test do try-catch bloku
+        4. V catch bloku:
            - Ulož screenshot: await page.screenshot({ path: 'error_screenshot.png', fullPage: true });
            - Vyprintuj chybu: console.error('TEST FAILED:', error.message);
            - Vyprintuj URL: console.error('Current URL:', page.url());
-        4. Na konci (v try bloku) ulož úspešný screenshot: await page.screenshot({ path: 'success_screenshot.png', fullPage: true });
-        5. V finally bloku zatvor browser: await browser.close();
+        5. Bezprostredne po vytvorení 'page' zavolaj 'await attachDiagnostics(page);' aby sa zachytili sieťové volania, console logy a DOM snapshot. Pomenuj súbory: 'network.json', 'console_logs.json', 'dom.html'.
+        6. Na konci (v try bloku) ulož úspešný screenshot: await page.screenshot({ path: 'success_screenshot.png', fullPage: true });
+        7. V finally bloku zatvor browser: await browser.close();
+        8. KRITICKÉ - SPA/AJAX ČAKANIE: Aplikácia je SPA (Blazor). Tlačidlá spúšťajú AJAX - stránka sa NENAVIGÁVA.
+           ZAKAŽANÉ metody (vždy timeoutujú v Blazor SPA):
+             await page.waitForLoadState(...)  ← NIKDY, ani 'networkidle', ani 'load'
+             await page.waitForNavigation(...)  ← NIKDY
+           POVOLENÉ metódy pre čakanie po AJAX akcii - použi JEDNO z:
+             await page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200, { timeout: 15000 });
+             await page.locator('SPECIFICKY_SELEKTOR').first().waitFor({ state: 'attached', timeout: 15000 });
+             await page.waitForFunction(() => document.querySelectorAll('SELEKTOR').length > 0, { timeout: 15000 });
+           UPOZORNENIE pre waitForSelector a locator.waitFor:
+             - NIKDY nepoužívaj state:'visible' na selektory ktoré matchujú veľa elementov (napr. 'table tbody tr')
+             - Ak selektor môže matchovať viac elementov, vždy použi .first() alebo .nth(0)
+             - Bezpečný vzor: await page.locator('table tbody tr').first().waitFor({ state: 'attached', timeout: 15000 });
+           waitForLoadState je povolené LEN hneď po page.goto().
         
         Vráť IBA a LEN kód, žiadne vysvetľovanie, žiadny markdown naokolo.
         `;
@@ -594,13 +640,10 @@ Vráť IBA markdown scenár, žiadny iný text.
 
         generatedCode = generatedCode.replace(/```javascript|```typescript|```/g, '').trim();
 
-        const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             response.markdown(`*Chyba: Nemáš otvorený žiadny projekt.*`);
             return;
         }
-
-        const workspacePath = workspaceFolders[0].uri.fsPath;
         
         // Vytvorenie štruktúrovaného priečinku
         const testFolderName = bugId ? `bug_${bugId}` : `test_${Date.now()}`;
@@ -623,6 +666,48 @@ Vráť IBA markdown scenár, žiadny iný text.
         const scenarioPath = path.join(testDir, 'test_scenario.md');
         fs.writeFileSync(scenarioPath, testScenario);
         
+                // Embed project overview into generated test so it's self-contained
+                if (projectOverview && projectOverview.trim().length > 0) {
+                        const header = '/* Project overview:\n' + projectOverview.split('\n').map(l => ' * ' + l).join('\n') + '\n */\n\n';
+                        generatedCode = header + generatedCode;
+                }
+
+                // Prepend diagnostics helper so generated tests can attach network/console/DOM listeners
+                const diagnosticsHelper = `
+// Autogenerated diagnostics helper - attach to Playwright page as: await attachDiagnostics(page)
+async function attachDiagnostics(page) {
+    const _fs = require('fs');
+    const _path = require('path');
+    try {
+        const network = [];
+        page.on('request', request => {
+            try { network.push({ type: 'request', url: request.url(), method: request.method(), headers: request.headers(), postData: request.postData() }); } catch(e) {}
+        });
+        page.on('response', async response => {
+            try { const body = await response.text().catch(()=>null); network.push({ type: 'response', url: response.url(), status: response.status(), headers: response.headers(), body }); } catch(e) {}
+        });
+        const consoleLogs = [];
+        page.on('console', msg => { try { consoleLogs.push({type: 'console', text: msg.text(), location: msg.location ? msg.location() : null}); } catch(e) {} });
+        page.on('pageerror', err => { try { consoleLogs.push({type:'pageerror', message: String(err)}); } catch(e) {} });
+
+        page.saveDiagnostics = async function(dir) {
+            try {
+                if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true });
+                _fs.writeFileSync(_path.join(dir,'network.json'), JSON.stringify(network, null, 2));
+                _fs.writeFileSync(_path.join(dir,'console_logs.json'), JSON.stringify(consoleLogs, null, 2));
+                try { const html = await page.content(); _fs.writeFileSync(_path.join(dir,'dom.html'), html); } catch(e) {}
+            } catch(e) {
+                // ignore
+            }
+        };
+    } catch(e) {
+        // ignore
+    }
+}
+\n`;
+
+                generatedCode = diagnosticsHelper + generatedCode;
+
         // Uloženie test scriptu
         const testFilePath = path.join(testDir, 'test.spec.js');
         fs.writeFileSync(testFilePath, generatedCode);
@@ -665,6 +750,13 @@ Vráť IBA markdown scenár, žiadny iný text.
                 
                 // Vizuálna analýza error screenshotu
                 response.markdown(`👁️ **Analýzujem čo sa pokazilo...**\n\n`);
+
+                const visionModel = await selectAIModel(context, 'vision');
+                if (!visionModel) {
+                    response.markdown(`*Chyba: Nenašiel sa vision model na analýzu screenshotu.*\n\n`);
+                    return;
+                }
+                response.markdown(`👁️ Vision model: **${visionModel.name || visionModel.id}**\n\n`);
                 
                 const errorScreenshotBuffer = fs.readFileSync(errorScreenshotPath);
                 const errorScreenshotBase64 = errorScreenshotBuffer.toString('base64');
@@ -685,20 +777,23 @@ Analýzuj screenshot a povedz:
 5. Návrh čo zmeniť v test_scenario.md aby test fungoval.`;
                 
                 const errorVisionMessages = [
-                    vscode.LanguageModelChatMessage.User(errorAnalysisPrompt),
                     vscode.LanguageModelChatMessage.User([
+                        new vscode.LanguageModelTextPart(errorAnalysisPrompt),
                         vscode.LanguageModelDataPart.image(
                             Buffer.from(errorScreenshotBase64, 'base64'),
                             'image/png'
                         )
                     ])
                 ];
-                
-                const errorVisionResponse = await model.sendRequest(errorVisionMessages, {}, token);
-                
+
                 let errorAnalysis = '';
-                for await (const chunk of errorVisionResponse.text) {
-                    errorAnalysis += chunk;
+                try {
+                    const errorVisionResponse = await visionModel.sendRequest(errorVisionMessages, {}, token);
+                    for await (const chunk of errorVisionResponse.text) {
+                        errorAnalysis += chunk;
+                    }
+                } catch (visionErr: any) {
+                    throw visionErr; // let outer handler fallback later
                 }
                 
                 response.markdown(`### 🔍 Analýza zlyhania:\n\n${errorAnalysis}\n\n`);
@@ -781,24 +876,32 @@ Skontroluj screenshot a zhodnoť:
 
 Odpovedz prehľadne a stručne.`;
             
-            // Použij ten istý model (už má vision capabilities)
-            response.markdown(`👁️ **Vizuálna analýza pomocou ${model.name || model.id}...**\n\n`);
-            
+            // Použij vision model na analýzu screenshotu
+            const visionModelForSuccess = await selectAIModel(context, 'vision');
+            if (!visionModelForSuccess) {
+                response.markdown(`*Chyba: Nenašiel sa vision model na analýzu screenshotu.*\n\n`);
+                return;
+            }
+            response.markdown(`👁️ **Vizuálna analýza pomocou ${visionModelForSuccess.name || visionModelForSuccess.id}...**\n\n`);
+
             const visionMessages = [
-                vscode.LanguageModelChatMessage.User(visionPrompt),
                 vscode.LanguageModelChatMessage.User([
+                    new vscode.LanguageModelTextPart(visionPrompt),
                     vscode.LanguageModelDataPart.image(
                         Buffer.from(screenshotBase64, 'base64'),
                         'image/png'
                     )
                 ])
             ];
-            
-            const visionResponse = await model.sendRequest(visionMessages, {}, token);
-            
+
             let analysisResult = '';
-            for await (const chunk of visionResponse.text) {
-                analysisResult += chunk;
+            try {
+                const visionResponse = await visionModelForSuccess.sendRequest(visionMessages, {}, token);
+                for await (const chunk of visionResponse.text) {
+                    analysisResult += chunk;
+                }
+            } catch (visionErr: any) {
+                throw visionErr; // let outer fallback handler manage it
             }
             
             response.markdown(`### 🔍 Výsledok analýzy:\n\n${analysisResult}\n\n`);
@@ -850,7 +953,7 @@ Test prebehol úspešne. Všetky kroky boli vykonané bez chýb.
             response.button({
                 command: 'autotest.cleanup',
                 title: '✅ Som spokojný - Zmazať screenshoty a Pushnúť na Git',
-                arguments: [workspacePath]
+                arguments: [workspacePath, testFolderName]
             });
             
             response.button({
@@ -862,7 +965,52 @@ Test prebehol úspešne. Všetky kroky boli vykonané bez chýb.
         } catch (execError: any) {
             response.markdown(`❌ **Chyba pri spustení:**\n\`\`\`\n${execError.message}\n\`\`\`\n\n`);
             response.markdown(`*Uisti sa, že máš nainštalovaný Playwright a aplikáciu bežiacu na ${config.appUrl}.*\n\n`);
-            
+
+            const errorScreenshotPath = path.join(testDir, 'error_screenshot.png');
+            const testResultPath = path.join(testDir, 'test_result.md');
+
+            if (fs.existsSync(errorScreenshotPath)) {
+                response.markdown(`📸 Error screenshot nájdený: \`${testFolderName}/error_screenshot.png\`\n\n`);
+
+                try {
+                    const errorScreenshotBuffer = fs.readFileSync(errorScreenshotPath);
+                    const errorScreenshotBase64 = errorScreenshotBuffer.toString('base64');
+
+                    const errorAnalysisPrompt = `Tu je screenshot v momente ked test zlyhala.\n\nPôvodný test scenár:\n${testScenario}\n\nChyba zo spustenia:\n${execError.message}\n\nAnalýzuj screenshot a povedz:\n1. Na akom kroku test zlyhala?\n2. Čo sa na obrazovke nachádza?\n3. Prečo pravdepodobne test nepreošel?\n4. Aké elementy sú viditeľné?\n5. Návrh čo zmeniť v test_scenario.md aby test fungoval.`;
+
+                    const errorVisionMessages = [
+                        vscode.LanguageModelChatMessage.User([
+                            new vscode.LanguageModelTextPart(errorAnalysisPrompt),
+                            vscode.LanguageModelDataPart.image(
+                                Buffer.from(errorScreenshotBase64, 'base64'),
+                                'image/png'
+                            )
+                        ])
+                    ];
+
+                    const errorVisionResponse = await model.sendRequest(errorVisionMessages, {}, token);
+                    let errorAnalysis = '';
+                    for await (const chunk of errorVisionResponse.text) {
+                        errorAnalysis += chunk;
+                    }
+
+                    const errorResultContent = `# Test Result: FAILED ❌\n\n## Test Info\n- **Bug ID:** ${bugId || 'N/A'}\n- **Timestamp:** ${new Date().toLocaleString('sk-SK')}\n- **Status:** FAILED\n\n## Problém\n${errorAnalysis}\n\n## Console Output\n\`\`\`\n${execError.message || 'No error message'}\n\`\`\`\n\n## Screenshots\n- Error screenshot: \`error_screenshot.png\`\n`;
+
+                    fs.writeFileSync(testResultPath, errorResultContent);
+                    response.markdown(`📄 Detail report: \`autotest/${testFolderName}/test_result.md\`\n\n`);
+                } catch (analysisErr: any) {
+                    // If analysis fails, still write basic result file
+                    const basicResult = `# Test Result: FAILED ❌\n\n## Error\n${execError.message}\n\n## Note\nError screenshot exists but analysis failed: ${analysisErr.message}`;
+                    fs.writeFileSync(testResultPath, basicResult);
+                }
+
+            } else {
+                // No screenshot available, write simple failure report
+                const basicResult = `# Test Result: FAILED ❌\n\n## Error\n${execError.message}\n\n## Note\nNo error screenshot was produced.`;
+                fs.writeFileSync(testResultPath, basicResult);
+                response.markdown(`📄 Vytvorený report: \`autotest/${testFolderName}/test_result.md\`\n\n`);
+            }
+
             // Uložiť do histórie ako failed
             await saveBugHistory(context, {
                 bugId,
@@ -913,10 +1061,16 @@ export function activate(context: vscode.ExtensionContext) {
         
         // ===== PRÍKAZ: @autotest select-model alebo model =====
         if (userQuery.includes('select-model') || userQuery.includes('model') || userQuery.includes('vyber model')) {
-            response.markdown(`🤖 **Výber AI modelu...**\n\n`);
-            const selectedModel = await selectAIModel(context);
-            if (selectedModel) {
-                response.markdown(`✅ Model zmenený na: **${selectedModel.name || selectedModel.id}** (${selectedModel.vendor})\n\n`);
+            response.markdown(`🤖 **Výber AI modelov...**\n\n`);
+            
+            const codeModel = await selectAIModel(context, 'code', true);
+            if (codeModel) {
+                response.markdown(`✅ Kódovací model: **${codeModel.name || codeModel.id}** (${codeModel.vendor})\n\n`);
+            }
+
+            const visionModel = await selectAIModel(context, 'vision', true);
+            if (visionModel) {
+                response.markdown(`✅ Vision model: **${visionModel.name || visionModel.id}** (${visionModel.vendor})\n\n`);
             }
             return;
         }
@@ -1006,11 +1160,18 @@ export function activate(context: vscode.ExtensionContext) {
             
             // Načítaj upravený scenár
             const updatedScenario = fs.readFileSync(scenarioPath, 'utf-8');
+
+            if (!updatedScenario || updatedScenario.trim().length < 20) {
+                response.markdown(`❌ **Test scenár je prázdny!**\n\n`);
+                response.markdown(`Súbor \`autotest/${testFolderName}/test_scenario.md\` neobsahuje žiadny obsah.\n\n`);
+                response.markdown(`Najprv uprav scenár – pridaj kroky testu, potom spusti regeneráciu znova.\n\n`);
+                return;
+            }
             
             response.markdown(`📝 Test scenár načítaný z: \`${testFolderName}/test_scenario.md\`\n\n`);
             
-            // Vyber AI model
-            const model = await selectAIModel(context);
+            // Vyber kódovací model
+            const model = await selectAIModel(context, 'code');
             if (!model) {
                 response.markdown(`*Chyba: Nenašiel sa AI model.*`);
                 return;
@@ -1060,13 +1221,28 @@ Teraz pokračuj s testovaním bugu.`;
             
             DÔLEŽITÉ POŽIADAVKY:
             1. Browser launch: const browser = await chromium.launch({ headless: ${config.headlessMode}, slowMo: ${config.slowMo} });
-            2. Obal CELÝ test do try-catch bloku
-            3. V catch bloku:
+            2. Po launchi vytvor context s veľkým viewportom: const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } }); const page = await context.newPage();
+            3. Obal CELÝ test do try-catch bloku
+            4. V catch bloku:
                - Ulož screenshot: await page.screenshot({ path: 'error_screenshot.png', fullPage: true });
                - Vyprintuj chybu: console.error('TEST FAILED:', error.message);
                - Vyprintuj URL: console.error('Current URL:', page.url());
-            4. Na konci (v try bloku) ulož úspešný screenshot: await page.screenshot({ path: 'success_screenshot.png', fullPage: true });
-            5. V finally bloku zatvor browser: await browser.close();
+            5. Na konci (v try bloku) ulož úspešný screenshot: await page.screenshot({ path: 'success_screenshot.png', fullPage: true });
+            6. V finally bloku zatvor browser: await browser.close();
+            7. Bezprostredne po vytvorení 'page' zavolaj 'await attachDiagnostics(page);' aby sa zachytili sieťové volania, console logy a DOM snapshot. Pomenuj súbory: 'network.json', 'console_logs.json', 'dom.html'.
+            8. KRITICKÉ - SPA/AJAX ČAKANIE: Aplikácia je SPA (Blazor). Tlačidlá spúšťajú AJAX - stránka sa NENAVIGÁVA.
+               ZAKAŽANÉ metody (vždy timeoutujú v Blazor SPA):
+                 await page.waitForLoadState(...)  ← NIKDY, ani 'networkidle', ani 'load'
+                 await page.waitForNavigation(...)  ← NIKDY
+               POVOLENÉ metódy pre čakanie po AJAX akcii - použi JEDNO z:
+                 await page.waitForResponse(resp => resp.url().includes('/api/') && resp.status() === 200, { timeout: 15000 });
+                 await page.locator('SPECIFICKY_SELEKTOR').first().waitFor({ state: 'attached', timeout: 15000 });
+                 await page.waitForFunction(() => document.querySelectorAll('SELEKTOR').length > 0, { timeout: 15000 });
+               UPOZORNENIE pre waitForSelector a locator.waitFor:
+                 - NIKDY nepoužívaj state:'visible' na selektory ktoré matchujú veľa elementov (napr. 'table tbody tr')
+                 - Ak selektor môže matchovať viac elementov, vždy použi .first() alebo .nth(0)
+                 - Bezpečný vzor: await page.locator('table tbody tr').first().waitFor({ state: 'attached', timeout: 15000 });
+               waitForLoadState je povolené LEN hneď po page.goto().
             
             Vráť IBA a LEN kód, žiadne vysvetlenné, žiadny markdown naokolo.
             `;
@@ -1079,10 +1255,61 @@ Teraz pokračuj s testovaním bugu.`;
                 regeneratedCode += chunk;
             }
             regeneratedCode = regeneratedCode.replace(/```javascript|```typescript|```/g, '').trim();
-            
-            // Ulož nový test script
-            const testFilePath = path.join(testDir, 'test.spec.js');
-            fs.writeFileSync(testFilePath, regeneratedCode);
+
+                        // If project overview exists, embed it as a header and prepend diagnostics helper
+                        try {
+                                const overviewPath = path.join(workspacePath, 'autotest', 'project_overview.md');
+                                let projectOverview = '';
+                                if (fs.existsSync(overviewPath)) {
+                                        projectOverview = fs.readFileSync(overviewPath, 'utf-8');
+                                }
+
+                                if (projectOverview && projectOverview.trim().length > 0) {
+                                        const header = '/* Project overview:\n' + projectOverview.split('\n').map(l => ' * ' + l).join('\n') + '\n */\n\n';
+                                        regeneratedCode = header + regeneratedCode;
+                                }
+
+                                const diagnosticsHelper = `
+// Autogenerated diagnostics helper - attach to Playwright page as: await attachDiagnostics(page)
+async function attachDiagnostics(page) {
+    const _fs = require('fs');
+    const _path = require('path');
+    try {
+        const network = [];
+        page.on('request', request => {
+            try { network.push({ type: 'request', url: request.url(), method: request.method(), headers: request.headers(), postData: request.postData() }); } catch(e) {}
+        });
+        page.on('response', async response => {
+            try { const body = await response.text().catch(()=>null); network.push({ type: 'response', url: response.url(), status: response.status(), headers: response.headers(), body }); } catch(e) {}
+        });
+        const consoleLogs = [];
+        page.on('console', msg => { try { consoleLogs.push({type: 'console', text: msg.text(), location: msg.location ? msg.location() : null}); } catch(e) {} });
+        page.on('pageerror', err => { try { consoleLogs.push({type:'pageerror', message: String(err)}); } catch(e) {} });
+
+        page.saveDiagnostics = async function(dir) {
+            try {
+                if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true });
+                _fs.writeFileSync(_path.join(dir,'network.json'), JSON.stringify(network, null, 2));
+                _fs.writeFileSync(_path.join(dir,'console_logs.json'), JSON.stringify(consoleLogs, null, 2));
+                try { const html = await page.content(); _fs.writeFileSync(_path.join(dir,'dom.html'), html); } catch(e) {}
+            } catch(e) {
+                // ignore
+            }
+        };
+    } catch(e) {
+        // ignore
+    }
+}
+\n`;
+
+                                regeneratedCode = diagnosticsHelper + regeneratedCode;
+                        } catch (e) {
+                                // Ignore errors while embedding diagnostics
+                        }
+
+                        // Ulož nový test script
+                        const testFilePath = path.join(testDir, 'test.spec.js');
+                        fs.writeFileSync(testFilePath, regeneratedCode);
             
             response.markdown(`✅ **Test script regenerovaný!**\n\n`);
             response.markdown(`📁 Uložený do: \`autotest/${testFolderName}/test.spec.js\`\n\n`);
@@ -1095,22 +1322,98 @@ Teraz pokračuj s testovaním bugu.`;
                     timeout: 120000
                 });
                 
-                if (stderr) {
-                    response.markdown(`⚠️ Console output:\n\`\`\`\n${stderr.substring(0, 500)}\n\`\`\`\n\n`);
+                const combinedOutput = [stdout, stderr].filter(Boolean).join('\n').trim();
+                if (combinedOutput) {
+                    response.markdown(`⚠️ Console output:\n\`\`\`\n${combinedOutput.substring(0, 1000)}\n\`\`\`\n\n`);
                 }
                 
                 const successScreenshotPath = path.join(testDir, 'success_screenshot.png');
                 const errorScreenshotPath = path.join(testDir, 'error_screenshot.png');
-                
+                const testResultPath = path.join(testDir, 'test_result.md');
+
                 if (fs.existsSync(errorScreenshotPath)) {
                     response.markdown(`⚠️ **Test stále zlyhala.**\n\n`);
                     response.markdown(`📸 Error screenshot: \`${testFolderName}/error_screenshot.png\`\n\n`);
-                    response.markdown(`Skús ešte upraviť test_scenario.md a znova regenerovať.\n\n`);
-                } else if (fs.existsSync(successScreenshotPath)) {
+
+                    // Vision analýza chybového screenshotu
+                    response.markdown(`👁️ **Analýzujem čo sa pokazilo...**\n\n`);
+                    const visionModel = await selectAIModel(context, 'vision');
+                    let errorAnalysis = 'Vision model nebol dostupný.';
+                    if (visionModel) {
+                        response.markdown(`👁️ Vision model: **${visionModel.name || visionModel.id}**\n\n`);
+                        const errorScreenshotBase64 = fs.readFileSync(errorScreenshotPath).toString('base64');
+                        const errorAnalysisPrompt = `Tu je screenshot v momente keď test zlyhala.\n\nTest scenár:\n${updatedScenario}\n\nChyba z console:\n${combinedOutput}\n\nAnalýzuj screenshot a povedz:\n1. Na akom kroku test zlyhala?\n2. Čo sa na obrazovke nachádza?\n3. Prečo pravdepodobne test neprebehol?\n4. Návrh čo zmeniť v test_scenario.md aby test fungoval.`;
+                        try {
+                            const errorVisionMessages = [
+                                vscode.LanguageModelChatMessage.User([
+                                    new vscode.LanguageModelTextPart(errorAnalysisPrompt),
+                                    vscode.LanguageModelDataPart.image(Buffer.from(errorScreenshotBase64, 'base64'), 'image/png')
+                                ])
+                            ];
+                            const errorVisionResponse = await visionModel.sendRequest(errorVisionMessages, {}, token);
+                            errorAnalysis = '';
+                            for await (const chunk of errorVisionResponse.text) {
+                                errorAnalysis += chunk;
+                            }
+                        } catch (e: any) {
+                            errorAnalysis = `Vision analýza zlyhala: ${e.message}`;
+                        }
+                        response.markdown(`### 🔍 Analýza zlyhania:\n\n${errorAnalysis}\n\n`);
+                    }
+
+                    fs.writeFileSync(testResultPath, `# Test Result: FAILED ❌\n\n## Test Info\n- **Folder:** ${testFolderName}\n- **Timestamp:** ${new Date().toLocaleString('sk-SK')}\n- **Status:** FAILED\n\n## Problém\n${errorAnalysis}\n\n## Console Output\n\`\`\`\n${combinedOutput || 'Žiadny output'}\n\`\`\`\n\n## Ďalšie kroky\n1. Otvor \`test_scenario.md\` a uprav kroky podľa analýzy vyššie\n2. Spusti: \`@autotest regenerate ${testFolderName}\`\n`);
+                    response.markdown(`📄 Detail report: \`autotest/${testFolderName}/test_result.md\`\n\n`);
+                    response.markdown(`🛠️ Uprav \`autotest/${testFolderName}/test_scenario.md\` a spusti \`@autotest regenerate ${testFolderName}\` znova.\n\n`);
+                    await saveBugHistory(context, {
+                        bugId: testFolderName.replace(/^(bug_|test_)/, ''),
+                        description: updatedScenario.split('\n').find((l: string) => l.trim().length > 5) || testFolderName,
+                        timestamp: new Date().toISOString(),
+                        testResult: 'failed'
+                    });
                     response.markdown(`✅ **Test prešiel úspešne!**\n\n`);
                     response.markdown(`📸 Screenshot: \`${testFolderName}/success_screenshot.png\`\n\n`);
+
+                    // Vision analýza úspešného screenshotu
+                    response.markdown(`👁️ **Analyzujem výsledok testu...**\n\n`);
+                    const visionModelOk = await selectAIModel(context, 'vision');
+                    let analysisResult = 'Vision model nebol dostupný.';
+                    if (visionModelOk) {
+                        response.markdown(`👁️ Vision model: **${visionModelOk.name || visionModelOk.id}**\n\n`);
+                        const screenshotBase64 = fs.readFileSync(successScreenshotPath).toString('base64');
+                        const visionPrompt = `Tu je screenshot aplikácie po dokončení testu.\n\nTest scenár:\n${updatedScenario}\n\nSkontroluj screenshot a zhodnoť:\n1. Či test prebehol správne až do konca\n2. Či je viditeľná očakávaná funkcia alebo výsledok\n3. Či aplikácia vyzerá správne\n\nOdpovedz prehľadne a stručne.`;
+                        try {
+                            const visionMessages = [
+                                vscode.LanguageModelChatMessage.User([
+                                    new vscode.LanguageModelTextPart(visionPrompt),
+                                    vscode.LanguageModelDataPart.image(Buffer.from(screenshotBase64, 'base64'), 'image/png')
+                                ])
+                            ];
+                            const visionResponse = await visionModelOk.sendRequest(visionMessages, {}, token);
+                            analysisResult = '';
+                            for await (const chunk of visionResponse.text) {
+                                analysisResult += chunk;
+                            }
+                        } catch (e: any) {
+                            analysisResult = `Vision analýza zlyhala: ${e.message}`;
+                        }
+                        response.markdown(`### 🔍 Výsledok analýzy:\n\n${analysisResult}\n\n`);
+                    }
+
+                    fs.writeFileSync(testResultPath, `# Test Result: PASSED ✅\n\n## Test Info\n- **Folder:** ${testFolderName}\n- **Timestamp:** ${new Date().toLocaleString('sk-SK')}\n- **Status:** PASSED\n\n## AI Vision Analysis\n${analysisResult}\n\n## Console Output\n\`\`\`\n${combinedOutput || 'Test dokončený bez chýb'}\n\`\`\`\n`);
+                    response.markdown(`📄 Detail report: \`autotest/${testFolderName}/test_result.md\`\n\n`);
+                    await saveBugHistory(context, {
+                        bugId: testFolderName.replace(/^(bug_|test_)/, ''),
+                        description: updatedScenario.split('\n').find((l: string) => l.trim().length > 5) || testFolderName,
+                        timestamp: new Date().toISOString(),
+                        testResult: 'success'
+                    });
+
                 } else {
-                    response.markdown(`⚠️ Žiadny screenshot sa nevytvoril.\n\n`);
+                    response.markdown(`⚠️ **Žiadny screenshot sa nevytvoril.**\n\n`);
+                    if (!combinedOutput) {
+                        response.markdown(`Test prebehol bez výstupu – pravdepodobne vygenerovaný kód neobsahoval žiadne Playwright kroky.\n\n`);
+                    }
+                    response.markdown(`Skontroluj \`autotest/${testFolderName}/test.spec.js\` a uprav test_scenario.md.\n\n`);
                 }
                 
             } catch (execError: any) {
@@ -1219,16 +1522,18 @@ Teraz pokračuj s testovaním bugu.`;
     });
     
     // Cleanup príkaz
-    const cleanupCommand = vscode.commands.registerCommand('autotest.cleanup', async (workspacePath: string) => {
+    const cleanupCommand = vscode.commands.registerCommand('autotest.cleanup', async (workspacePath: string, testFolderName?: string) => {
         try {
-            const testDir = path.join(workspacePath, 'test_screenshots');
-            if (fs.existsSync(testDir)) {
-                fs.rmSync(testDir, { recursive: true, force: true });
-            }
-            
-            const testFilePath = path.join(workspacePath, 'autotest.spec.js');
-            if (fs.existsSync(testFilePath)) {
-                fs.unlinkSync(testFilePath);
+            // Zmaž screenshoty a výsledky zo špecifického test folderu
+            if (testFolderName) {
+                const testDir = path.join(workspacePath, 'autotest', testFolderName);
+                const filesToDelete = ['success_screenshot.png', 'error_screenshot.png', 'test_result.md', 'network.json', 'console_logs.json', 'dom.html'];
+                for (const file of filesToDelete) {
+                    const filePath = path.join(testDir, file);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                }
             }
             
             vscode.window.showInformationMessage('🧹 Dočasné súbory boli zmazané!');

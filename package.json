@@ -14,6 +14,25 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "autotest",
+          "title": "Autotest",
+          "icon": "sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "autotest": [
+        {
+          "id": "autotest.dashboardView",
+          "name": "Dashboard",
+          "type": "webview",
+          "icon": "icon.svg"
+        }
+      ]
+    },
     "chatParticipants": [
       {
         "id": "autotest.agent",
@@ -68,6 +87,14 @@
       {
         "command": "autotest.keepScreenshots",
         "title": "Autotest: Ponechať screenshoty"
+      },
+      {
+        "command": "autotest.runTest",
+        "title": "Autotest: Spustiť existujúci test"
+      },
+      {
+        "command": "autotest.openDashboard",
+        "title": "Autotest: Otvoriť Dashboard"
       }
     ]
   },

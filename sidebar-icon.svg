@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Hľadáčik / Pasca (3 rohy, pravý dolný chýba, tam bude robot) -->
+    <path d="M3 8V5a2 2 0 0 1 2-2h3" opacity="0.5"/>
+    <path d="M16 3h3a2 2 0 0 1 2 2v3" opacity="0.5"/>
+    <path d="M8 21H5a2 2 0 0 1-2-2v-3" opacity="0.5"/>
+    
+    <!-- CHROBÁK (Zmenšený a posunutý mierne vľavo) -->
+    <!-- Telo -->
+    <rect x="4" y="7" width="6" height="10" rx="3" />
+    <!-- Hlavička -->
+    <path d="M5 7V5.5A2 2 0 0 1 9 5.5V7" />
+    <!-- Tykadlá -->
+    <path d="M5.5 4L4 2" />
+    <path d="M8.5 4l1.5-2" />
+    <!-- Nožičky -->
+    <path d="M4 10H1.5" />
+    <path d="M4 14H1.5" />
+    <path d="M10 10h3" />
+    <path d="M10 14h2" />
+
+    <!-- AI ROBOT (Stojí vpravo dole a sleduje chrobáka) -->
+    <!-- Telo / Hlava robota -->
+    <rect x="14" y="14" width="8" height="7" rx="2" />
+    <!-- Anténka s guličkou -->
+    <path d="M18 14v-2" />
+    <circle cx="18" cy="11" r="1.2" fill="currentColor" stroke="none" />
+    <!-- Oči (Hrubšie bodky) -->
+    <path d="M16 16.5v.01" stroke-width="2" />
+    <path d="M20 16.5v.01" stroke-width="2" />
+    <!-- Senzor / Pusa -->
+    <path d="M16.5 19h3" stroke-width="1" />
+</svg>

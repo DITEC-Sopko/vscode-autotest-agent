@@ -58,6 +58,28 @@ alebo bez TFS:
 @autotest test
 ```
 
+### 5. **Desktop mode (PowerShell UI Automation):**
+Pri `@autotest init` vyber:
+- Typ aplikácie: `Desktop`
+- Backend: `PowerShell UI Automation` (odporúčané - žiadna inštalácia)
+- App target: absolútna cesta k `.exe` alebo App User Model ID
+- Probe: Áno (extension otvorí app a zistí presné údaje o okne)
+
+Príklady targetu:
+```text
+C:\Program Files\MyApp\MyApp.exe
+Microsoft.WindowsCalculator_8wekyb3d8bbwe!App
+```
+
+**Probe feature:** Extension skúšobne otvorí aplikáciu a automaticky zistí:
+- Názov hlavného okna
+- ClassName
+- AutomationId
+
+Tieto údaje sa uložia do `autotest/desktop_app_metadata.json` a AI ich použije pri generovaní testov → výrazne vyššia spoľahlivosť!
+
+Extension potom v desktop mode generuje PowerShell `.ps1` script (nie JavaScript).
+
 ---
 
 ## 📁 Štruktúra generovaných testov
@@ -185,6 +207,11 @@ váš-projekt/                    ← Váš VS Code workspace
 npm install playwright
 npx playwright install chromium
 ```
+
+### Desktop test sa nespustí (WinAppDriver)?
+- Skontroluj, že WinAppDriver beží na `127.0.0.1:4723`
+- Over, že app target v konfigurácii je správny (`.exe` path alebo App User Model ID)
+- Spusť test znova cez `@autotest test` alebo `@autotest over bug 123`
 
 ### TFS pripojenie zlyhá?
 - Skontroluj URL (HTTP aj HTTPS funguje)

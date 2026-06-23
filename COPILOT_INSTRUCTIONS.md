@@ -84,12 +84,14 @@ autotest/                       ← V .gitignore
 - [ ] Regression testing automation
 - [ ] Test run reports (PDF export)
 
-## 🖥️ Desktop testovanie (dlhodobý plán):
+## 🖥️ Desktop testovanie:C:\Windows\System32\calc.exe
 
-- [ ] Podpora natívnych Windows aplikácií (WPF, WinForms, .NET MAUI)
-- [ ] Integrácia Appium + WinAppDriver (WebDriver protokol)
-- [ ] Auto-inštalácia Appium cez npm, manuálny krok pre WinAppDriver .msi
-- [ ] Generovanie Appium testov miesto Playwright pre appType = 'desktop'
+- [x] Podpora natívnych Windows aplikácií (WPF, WinForms, .NET MAUI, UWP)
+- [x] Integrácia PowerShell UI Automation backend (default, žiadna inštalácia)
+- [x] Integrácia WinAppDriver flow (alternatívny backend cez Selenium WebDriver)
+- [x] Auto-inštalácia JS runtime balíka `selenium-webdriver` pre WinAppDriver
+- [x] Generovanie PowerShell/WinAppDriver testov miesto Playwright pre appType = 'desktop'
+- [x] **Desktop App Probe** - automatická detekcia window metadata pri init
 - [ ] Poznámka: Playwright funguje len pre web/Electron, nie pre čisto natívne desktop appky
 
 ---

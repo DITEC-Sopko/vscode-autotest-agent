@@ -18,6 +18,7 @@ export interface AutotestConfig {
     username?: string;
     headlessMode?: boolean;
     slowMo?: number;
+    desktopBackend?: 'pywinauto';
 }
 
 /**
@@ -48,6 +49,10 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         slowMo?: number;
     }>('debugConfig');
     
+    const desktopConfig = context.workspaceState.get<{
+        backend?: 'pywinauto';
+    }>('desktopConfig');
+    
     // Backward compat: fall back to old single preferredModelId for code model
     const preferredCodeModelId = context.globalState.get<string>('preferredCodeModelId')
         || context.globalState.get<string>('preferredModelId');
@@ -67,7 +72,8 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         loginRequired: loginConfig?.required || false,
         username: loginConfig?.username,
         headlessMode: debugConfig?.headless !== undefined ? debugConfig.headless : true,
-        slowMo: debugConfig?.slowMo || 0
+        slowMo: debugConfig?.slowMo || 0,
+        desktopBackend: desktopConfig?.backend || 'pywinauto'
     };
 }
 
@@ -199,6 +205,16 @@ export async function getLoginPassword(
 }
 
 /**
+ * Uloží desktop automation backend konfiguráciu
+ */
+export async function saveDesktopBackend(
+    context: vscode.ExtensionContext,
+    backend: 'pywinauto'
+): Promise<void> {
+    await context.workspaceState.update('desktopConfig', { backend });
+}
+
+/**
  * Resetuje všetku konfiguráciu
  */
 export async function resetConfiguration(context: vscode.ExtensionContext): Promise<void> {
@@ -210,6 +226,7 @@ export async function resetConfiguration(context: vscode.ExtensionContext): Prom
     await context.workspaceState.update('tfsConfig', undefined);
     await context.workspaceState.update('loginConfig', undefined);
     await context.workspaceState.update('debugConfig', undefined);
+    await context.workspaceState.update('desktopConfig', undefined);
     await context.secrets.delete('tfs-pat');
     await context.secrets.delete('login-password');
 }

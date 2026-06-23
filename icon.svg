@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+    <defs>
+        <!-- Tmavé pozadie v štýle VS Code -->
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e1e3f"/>
+            <stop offset="100%" stop-color="#0b0b1a"/>
+        </linearGradient>
+        
+        <!-- Žiara pre lasery a oko -->
+        <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+
+    <!-- Pozadie (zaoblený štvorec) -->
+    <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+
+    <!-- CHROBÁK (Bug) -->
+    <g transform="translate(128, 150) scale(1.1)">
+        <!-- Nohy -->
+        <path d="M -15 -10 L -25 -20 M -15 0 L -30 0 M -15 10 L -25 20 M 15 -10 L 25 -20 M 15 0 L 30 0 M 15 10 L 25 20" stroke="#ff4a4a" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <!-- Tykadlá -->
+        <path d="M -8 -25 Q -15 -40 -25 -35 M 8 -25 Q 15 -40 25 -35" stroke="#ff4a4a" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <!-- Telo -->
+        <rect x="-12" y="-15" width="24" height="35" rx="12" fill="#ff4a4a"/>
+        <!-- Hlava -->
+        <circle cx="0" cy="-20" r="8" fill="#ff4a4a"/>
+        <!-- Čiara na chrbte -->
+        <line x1="0" y1="-15" x2="0" y2="20" stroke="#1e1e3f" stroke-width="3"/>
+    </g>
+
+    <!-- PASCA NA CHROBÁKA (High-tech Klietka) -->
+    <g transform="translate(128, 150)">
+        <!-- Základňa pasce -->
+        <rect x="-60" y="45" width="120" height="12" rx="6" fill="#4facfe"/>
+        <!-- Laserové mreže chytajúce chrobáka -->
+        <line x1="-45" y1="45" x2="-25" y2="-60" stroke="#00f2fe" stroke-width="4" stroke-dasharray="8,4" filter="url(#glow)"/>
+        <line x1="45" y1="45" x2="25" y2="-60" stroke="#00f2fe" stroke-width="4" stroke-dasharray="8,4" filter="url(#glow)"/>
+        <line x1="-15" y1="45" x2="-10" y2="-70" stroke="#00f2fe" stroke-width="4" filter="url(#glow)"/>
+        <line x1="15" y1="45" x2="10" y2="-70" stroke="#00f2fe" stroke-width="4" filter="url(#glow)"/>
+    </g>
+
+    <!-- AI KAMERA (Skenuje chrobáka zhora) -->
+    <g transform="translate(128, 70)">
+        <!-- Telo kamery -->
+        <circle cx="0" cy="0" r="26" fill="#2b2b4e" stroke="#4facfe" stroke-width="6"/>
+        <!-- Šošovka objektívu -->
+        <circle cx="0" cy="0" r="14" fill="#000000"/>
+        <!-- Svietiaci zelený senzor -->
+        <circle cx="0" cy="0" r="6" fill="#00ffcc" filter="url(#glow)"/>
+        <!-- Holografický skenovací lúč dopadajúci na chrobáka -->
+        <polygon points="-8,25 8,25 50,120 -50,120" fill="#00ffcc" opacity="0.15"/>
+    </g>
+
+    <!-- AI HVIEZDIČKY (Kúzlo umelej inteligencie) -->
+    <path d="M 45 60 L 49 48 L 60 44 L 49 40 L 45 28 L 41 40 L 30 44 L 41 48 Z" fill="#f9f1a5"/>
+    <path d="M 210 85 L 213 77 L 220 74 L 213 71 L 210 63 L 207 71 L 200 74 L 207 77 Z" fill="#f9f1a5"/>
+    <circle cx="190" cy="45" r="3" fill="#f9f1a5"/>
+</svg>

@@ -50,23 +50,39 @@ export async function loadFromClipboard(): Promise<string | undefined> {
 export async function getBugDescriptionWithClipboardOption(): Promise<string | undefined> {
     const clipboardText = await loadFromClipboard();
     
+    const options: Array<{ label: string; value: string; description?: string }> = [];
+    
     if (clipboardText && clipboardText.length > 10) {
-        const useClipboard = await vscode.window.showQuickPick(
-            [
-                { label: '📋 Použiť text z clipboardu', value: 'clipboard', description: clipboardText.substring(0, 60) + '...' },
-                { label: '✍️ Zadať manuálne', value: 'manual' }
-            ],
-            {
-                placeHolder: 'Máš text v clipboarde. Chceš ho použiť?'
-            }
-        );
-        
-        if (useClipboard?.value === 'clipboard') {
-            return clipboardText;
-        }
+        options.push({
+            label: '📋 Použiť text z clipboardu',
+            value: 'clipboard',
+            description: clipboardText.substring(0, 60) + '...'
+        });
     }
     
-    return await askForBugDescription();
+    options.push(
+        { label: '✍️ Zadať krátky popis (1 riadok)', value: 'manual' },
+        { label: '📝 Vytvoriť test_scenario.md a editovať', value: 'file' }
+    );
+    
+    const choice = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Ako chceš zadať popis testu?'
+    });
+    
+    if (!choice) {
+        return undefined;
+    }
+    
+    if (choice.value === 'clipboard') {
+        return clipboardText;
+    }
+    
+    if (choice.value === 'manual') {
+        return await askForBugDescription();
+    }
+    
+    // 'file' option returns a special marker that will be handled by the caller
+    return '__CREATE_FILE__';
 }
 
 /**

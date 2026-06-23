@@ -9,5 +9,11 @@
 		"dist": true // set this to false to include "dist" folder in search results
 	},
 	// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-	"typescript.tsc.autoDetect": "off"
+	"typescript.tsc.autoDetect": "off",
+	"chat.tools.terminal.autoApprove": {
+		"/^\\$content = \\[System\\.IO\\.File\\]::ReadAllText\\(\"src\\\\extension\\.ts\", \\[System\\.Text\\.Encoding\\]::UTF8\\); \\$idx = \\$content\\.IndexOf\\(\"saveDesktopBackend\\(context, 'pywinauto'\\)\"\\); \\$snippet = \\$content\\.Substring\\(\\$idx, 300\\); \\$bytes = \\[System\\.Text\\.Encoding\\]::UTF8\\.GetBytes\\(\\$snippet\\); \"bytes: \" \\+ \\(\\$bytes\\[0\\.\\.150\\]\\|%\\{\"\\{0:X2\\}\" -f \\$_\\}\\)$/": {
+			"approve": true,
+			"matchCommandLine": true
+		}
+	}
 }

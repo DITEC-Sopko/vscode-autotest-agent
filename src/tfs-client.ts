@@ -93,163 +93,6 @@ export class TfsClient {
     }
 
     /**
-     * Vytvorí nový bug v TFS
-     */
-    async createBug(
-        title: string,
-        description: string,
-        reproSteps: string,
-        screenshotPath?: string
-    ): Promise<{ id: number; url: string }> {
-        if (!this.connection) {
-            throw new Error('Nie si pripojený k TFS');
-        }
-
-        try {
-            const witApi = await this.connection.getWorkItemTrackingApi();
-
-            // Vytvorenie work item dokumentu
-            const patchDocument = [
-                {
-                    op: 'add',
-                    path: '/fields/System.Title',
-                    value: title
-                },
-                {
-                    op: 'add',
-                    path: '/fields/System.Description',
-                    value: description
-                },
-                {
-                    op: 'add',
-                    path: '/fields/Microsoft.VSTS.TCM.ReproSteps',
-                    value: reproSteps
-                }
-            ];
-
-            const workItem = await witApi.createWorkItem(
-                undefined,
-                patchDocument as any,
-                this.projectName,
-                'Bug'
-            );
-
-            if (!workItem || !workItem.id) {
-                throw new Error('Work item sa nepodarilo vytvoriť');
-            }
-
-            const bugUrl = `${this.organizationUrl}/${this.projectName}/_workitems/edit/${workItem.id}`;
-
-            // Ak existuje screenshot, pripoj ho ako attachment
-            if (screenshotPath) {
-                await this.attachScreenshot(workItem.id, screenshotPath);
-            }
-
-            return {
-                id: workItem.id,
-                url: bugUrl
-            };
-        } catch (error: any) {
-            console.error('Error creating bug:', error);
-            throw new Error(`Nepodarilo sa vytvoriť bug: ${error.message}`);
-        }
-    }
-
-    /**
-     * Aktualizuje stav bugu
-     */
-    async updateBugStatus(bugId: number, state: string): Promise<boolean> {
-        if (!this.connection) {
-            throw new Error('Nie si pripojený k TFS');
-        }
-
-        try {
-            const witApi = await this.connection.getWorkItemTrackingApi();
-
-            const patchDocument = [
-                {
-                    op: 'add',
-                    path: '/fields/System.State',
-                    value: state
-                }
-            ];
-
-            await witApi.updateWorkItem(
-                undefined,
-                patchDocument as any,
-                bugId,
-                this.projectName
-            );
-
-            return true;
-        } catch (error: any) {
-            console.error('Error updating bug status:', error);
-            throw new Error(`Nepodarilo sa aktualizovať stav bugu: ${error.message}`);
-        }
-    }
-
-    /**
-     * Pripojí screenshot ako attachment k work item
-     */
-    private async attachScreenshot(workItemId: number, screenshotPath: string): Promise<void> {
-        if (!this.connection) {
-            return;
-        }
-
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            
-            if (!fs.existsSync(screenshotPath)) {
-                console.warn('Screenshot file not found:', screenshotPath);
-                return;
-            }
-
-            const witApi = await this.connection.getWorkItemTrackingApi();
-            const fileContent = fs.readFileSync(screenshotPath);
-            const fileName = path.basename(screenshotPath);
-
-            // Upload attachment
-            const attachment = await witApi.createAttachment(
-                undefined,
-                fileContent,
-                fileName,
-                undefined,
-                this.projectName
-            );
-
-            if (!attachment || !attachment.url) {
-                throw new Error('Attachment upload failed');
-            }
-
-            // Link attachment to work item
-            const patchDocument = [
-                {
-                    op: 'add',
-                    path: '/relations/-',
-                    value: {
-                        rel: 'AttachedFile',
-                        url: attachment.url,
-                        attributes: {
-                            comment: 'Screenshot z automatického testu'
-                        }
-                    }
-                }
-            ];
-
-            await witApi.updateWorkItem(
-                undefined,
-                patchDocument as any,
-                workItemId,
-                this.projectName
-            );
-        } catch (error: any) {
-            console.error('Error attaching screenshot:', error);
-            // Neprerušujeme proces kvôli zlyhaniu attachmentu
-        }
-    }
-
-    /**
      * Odstráni HTML tagy z textu
      */
     private stripHtml(html: string): string {
@@ -257,6 +100,73 @@ export class TfsClient {
             return '';
         }
         return html.replace(/<[^>]*>/g, '').trim();
+    }
+
+    /**
+     * Načíta bugy/requirements/test scénáre priradené aktuálnemu používateľovi
+     */
+    async getMyWorkItems(
+        states: string[] = ['New', 'Active', 'Ready'],
+        workItemTypes: string[] = ['Bug', 'Requirement', 'Test Case']
+    ): Promise<Array<{ id: number; title: string; type: string; state: string; url: string }>> {
+        if (!this.connection) {
+            throw new Error('Nie si pripojený k TFS');
+        }
+
+        try {
+            const witApi = await this.connection.getWorkItemTrackingApi();
+
+            const wiql = `
+                SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State]
+                FROM WorkItems
+                WHERE [System.TeamProject] = '${this.projectName}'
+                    AND [System.AssignedTo] = @Me
+                    AND [System.State] IN (${states.map(s => `'${s}'`).join(', ')})
+                    AND [System.WorkItemType] IN (${workItemTypes.map(t => `'${t}'`).join(', ')})
+                ORDER BY [System.ChangedDate] DESC
+            `;
+
+            const queryResult = await witApi.queryByWiql({ query: wiql });
+
+            if (!queryResult.workItems || queryResult.workItems.length === 0) {
+                return [];
+            }
+
+            const workItems = await Promise.all(
+                queryResult.workItems.map(async (wi) => {
+                    const id = wi.id;
+                    if (!id) {
+                        return null;
+                    }
+
+                    try {
+                        const details = await witApi.getWorkItem(id, undefined, undefined, undefined, this.projectName);
+                        const url = `${this.organizationUrl}/${this.projectName}/_workitems/edit/${id}`;
+
+                        return {
+                            id,
+                            title: String(details.fields?.['System.Title'] || 'N/A'),
+                            type: String(details.fields?.['System.WorkItemType'] || 'Unknown'),
+                            state: String(details.fields?.['System.State'] || 'Unknown'),
+                            url
+                        };
+                    } catch {
+                        return {
+                            id,
+                            title: 'Nepodarilo sa načítať',
+                            type: 'Unknown',
+                            state: 'Unknown',
+                            url: `${this.organizationUrl}/${this.projectName}/_workitems/edit/${id}`
+                        };
+                    }
+                })
+            );
+
+            return workItems.filter((item): item is { id: number; title: string; type: string; state: string; url: string } => item !== null);
+        } catch (error: any) {
+            console.error('Error getting my work items:', error);
+            throw new Error(`Nepodarilo sa načítať work items: ${error.message}`);
+        }
     }
 
     /**

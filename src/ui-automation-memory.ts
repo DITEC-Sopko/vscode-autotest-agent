@@ -1,9 +1,9 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 
 export interface StrategyRecord {
-    elementType: string;   // 'menuItem', 'button', 'window', 'textBox', atÄŹ.
-    elementName: string;   // napr. 'HlavnĂ©', 'OK', 'PouĹľĂ­vateÄľ'
+    elementType: string;   // 'menuItem', 'button', 'window', 'textBox', atď.
+    elementName: string;   // napr. 'Hlavné', 'OK', 'Používateľ'
     strategyName: string;  // napr. 'FindFirst-NameProperty', 'MenuBar-Children'
     successCount: number;
     failureCount: number;
@@ -20,8 +20,8 @@ export interface AutomationMemoryData {
 }
 
 /**
- * PerzistentnĂˇ pamĂ¤ĹĄ UI Automation stratĂ©giĂ­ pre jeden projekt.
- * UkladĂˇ ÄŤo fungovalo a ÄŤo nie, aby AI vygeneroval lepĹˇie skripty nabudĂşce.
+ * Perzistentná pamäť UI Automation stratégií pre jeden projekt.
+ * Ukladá čo fungovalo a čo nie, aby AI vygeneroval lepšie skripty nabudúce.
  */
 export class ProjectAutomationMemory {
     private memoryPath: string;
@@ -84,7 +84,7 @@ export class ProjectAutomationMemory {
 
     addNote(note: string): void {
         this.data.notes.push(`[${new Date().toISOString().substring(0, 19)}] ${note}`);
-        // DrĹľ max 50 poznĂˇmok
+        // Drž max 50 poznámok
         if (this.data.notes.length > 50) {
             this.data.notes = this.data.notes.slice(-50);
         }
@@ -92,36 +92,36 @@ export class ProjectAutomationMemory {
     }
 
     /**
-     * FormĂˇtuje pamĂ¤ĹĄ pre AI prompt.
-     * Vracia prĂˇzdny string ak eĹˇte nie sĂş Ĺľiadne zĂˇznamy.
+     * Formátuje pamäť pre AI prompt.
+     * Vracia prázdny string ak ešte nie sú žiadne záznamy.
      */
     formatForPrompt(): string {
         if (this.data.strategies.length === 0 && this.data.notes.length === 0) {
             return '';
         }
 
-        const lines: string[] = ['### UI Automation pamĂ¤ĹĄ projektu (histĂłria stratĂ©giĂ­):'];
+        const lines: string[] = ['### UI Automation pamäť projektu (história stratégií):'];
 
         const successful = this.data.strategies.filter(s => s.successCount > 0);
         const failedOnly = this.data.strategies.filter(s => s.failureCount > 0 && s.successCount === 0);
 
         if (successful.length > 0) {
-            lines.push('\n**âś… FUNGUJĂšCE stratĂ©gie pre tento projekt (POUĹ˝I TIETO PREDNOSTNE):**');
+            lines.push('\n**✅ FUNGUJÚCE stratégie pre tento projekt (POUŽI TIETO PREDNOSTNE):**');
             for (const s of successful) {
-                lines.push(`- [${s.elementType}] "${s.elementName}" â†’ "${s.strategyName}" (${s.successCount}x Ăşspech)`);
+                lines.push(`- [${s.elementType}] "${s.elementName}" → "${s.strategyName}" (${s.successCount}x úspech)`);
             }
         }
 
         if (failedOnly.length > 0) {
-            lines.push('\n**âťŚ NEFUNGUJĂšCE stratĂ©gie (VYHNI SA IM - skoÄŤia na ÄŹalĹˇĂ­ fallback):**');
+            lines.push('\n**❌ NEFUNGUJÚCE stratégie (VYHNI SA IM - skočia na ďalší fallback):**');
             for (const s of failedOnly) {
-                lines.push(`- [${s.elementType}] "${s.elementName}" â†’ "${s.strategyName}" (${s.failureCount}x zlyhanie)`);
+                lines.push(`- [${s.elementType}] "${s.elementName}" → "${s.strategyName}" (${s.failureCount}x zlyhanie)`);
             }
         }
 
         if (this.data.notes.length > 0) {
             const recentNotes = this.data.notes.slice(-5);
-            lines.push('\n**PoslednĂ© poznĂˇmky z testov:**');
+            lines.push('\n**Posledné poznámky z testov:**');
             for (const n of recentNotes) {
                 lines.push(`- ${n}`);
             }

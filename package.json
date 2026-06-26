@@ -58,7 +58,7 @@
           },
           {
             "name": "regenerate",
-            "description": "Regenerovať test script zo scenára"
+            "description": "Znova otestovať podľa upraveného scenára"
           },
           {
             "name": "history",

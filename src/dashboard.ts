@@ -46,6 +46,7 @@ async function buildState(context: vscode.ExtensionContext) {
         role: cfg.userRole, appType: cfg.appType, appUrl: cfg.appUrl, tfsEnabled: cfg.tfsEnabled,
         loginRequired: !!cfg.loginRequired, username: cfg.username || '', headless: cfg.headlessMode !== false,
         models, preferredModel: cfg.preferredCodeModelId || '', tfsOrg: cfg.tfsOrganization || '', tfsProject: cfg.tfsProject || '',
+        tfsAssignedToMe: cfg.tfsAssignedToMe !== false, tfsStates: cfg.tfsStates || 'New, Active, Ready', tfsTypes: cfg.tfsTypes || 'Bug, Requirement, Test Case',
         tests: ws ? listTests(ws) : [],
         history: getBugHistory(context, 5)
     };
@@ -129,17 +130,25 @@ label{font-size:11px;opacity:.8}input,select{background:var(--vscode-input-backg
  <div class="row"><label>TFS organization URL</label><input id="s_tfsorg"/></div>
  <div class="row"><label>TFS projekt</label><input id="s_tfsproj"/></div>
  <div class="row"><label>TFS token (uloží sa pri vyplnení)</label><input type="password" id="s_tfspat"/></div>
+ <div class="row chk"><input type="checkbox" id="s_tfsme"/><label>Iba priradené mne (@Me)</label></div>
+ <div class="row"><label>Stavy (čiarkou)</label><input id="s_tfsstates"/></div>
+ <div class="row"><label>Typy (čiarkou)</label><input id="s_tfstypes"/></div>
  <div style="display:flex;gap:6px"><button id="s_save">Uložiť</button></div>
 </div>
 <div class="filters"><button data-f="all">Všetky</button><button data-f="passed">✅</button><button data-f="failed">❌</button><button data-f="unknown">❔</button></div>
 <h3>Testy</h3><div id="tests"></div>
+<div id="tfsbugs" style="display:none">
+ <h3 style="display:flex;align-items:center;gap:8px">TFS bugy <button class="sec" id="loadbugs" style="font-size:11px;padding:2px 8px">Načítať</button></h3>
+ <div id="bugs"></div>
+</div>
 <script>
 const v=acquireVsCodeApi();let st={},flt='all';
 function send(a,p){v.postMessage({action:a,...p})}
 document.getElementById('add').onclick=()=>send('add');
 document.getElementById('set').onclick=()=>document.getElementById('settings').classList.toggle('open');
 document.getElementById('ref').onclick=()=>send('refresh');
-document.getElementById('s_save').onclick=()=>send('saveSettings',{role:s_role.value,appType:s_type.value,appUrl:s_url.value,login:s_login.checked,username:s_user.value,password:s_pwd.value,headless:s_head.checked,model:s_model.value,tfs:s_tfs.checked,tfsOrg:s_tfsorg.value,tfsProject:s_tfsproj.value,tfsPat:s_tfspat.value});
+document.getElementById('loadbugs').onclick=()=>{document.getElementById('bugs').innerHTML='<p style="opacity:.6">Načítavam…</p>';send('loadBugs');};
+document.getElementById('s_save').onclick=()=>send('saveSettings',{role:s_role.value,appType:s_type.value,appUrl:s_url.value,login:s_login.checked,username:s_user.value,password:s_pwd.value,headless:s_head.checked,model:s_model.value,tfs:s_tfs.checked,tfsOrg:s_tfsorg.value,tfsProject:s_tfsproj.value,tfsPat:s_tfspat.value,tfsMe:s_tfsme.checked,tfsStates:s_tfsstates.value,tfsTypes:s_tfstypes.value});
 document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{flt=b.dataset.f;render()});
 function render(){
  const m=document.getElementById('meta');
@@ -147,6 +156,8 @@ function render(){
  s_role.value=st.role==='unknown'?'developer':st.role;s_type.value=st.appType||'web';s_url.value=st.appUrl||'';
  s_login.checked=!!st.loginRequired;s_user.value=st.username||'';s_head.checked=st.headless!==false;
  s_tfs.checked=!!st.tfsEnabled;s_tfsorg.value=st.tfsOrg||'';s_tfsproj.value=st.tfsProject||'';
+ s_tfsme.checked=st.tfsAssignedToMe!==false;s_tfsstates.value=st.tfsStates||'';s_tfstypes.value=st.tfsTypes||'';
+ document.getElementById('tfsbugs').style.display=st.tfsEnabled?'block':'none';
  s_model.innerHTML=(st.models||[]).map(x=>'<option value="'+x.id+'">'+x.name+'</option>').join('');if(st.preferredModel)s_model.value=st.preferredModel;
  const t=document.getElementById('tests');t.innerHTML='';
  (st.tests||[]).filter(x=>flt==='all'||x.status===flt).forEach(x=>{
@@ -158,7 +169,19 @@ function render(){
   d.querySelectorAll('button').forEach(b=>b.onclick=()=>send(b.dataset.a,{folder:x.name}));
   t.appendChild(d);});
 }
-window.addEventListener('message',e=>{if(e.data.type==='state'){st=e.data.payload;render()}});
+window.addEventListener('message',e=>{if(e.data.type==='state'){st=e.data.payload;render()}else if(e.data.type==='bugs'){renderBugs(e.data.payload)}});
+function renderBugs(p){
+ const b=document.getElementById('bugs');
+ if(!p.ok){b.innerHTML='<p style="color:#f85149">'+(p.error||'Chyba')+'</p>';return;}
+ if(!p.bugs||!p.bugs.length){b.innerHTML='<p style="opacity:.6">Žiadne work items.</p>';return;}
+ b.innerHTML='';
+ p.bugs.forEach(x=>{
+  const d=document.createElement('div');d.className='card u';
+  d.innerHTML='<div class="top"><span class="badge u">#'+x.id+' '+x.type+'</span><span class="name" title="'+x.title.replace(/"/g,'&quot;')+'">'+x.title+'</span></div>'+
+   '<div class="bot"><span class="time">'+x.state+'</span><span class="acts"><button data-a="bugTest">Vytvoriť test</button></span></div>';
+  d.querySelector('button').onclick=()=>send('bugTest',{id:x.id});
+  b.appendChild(d);});
+}
 v.postMessage({action:'refresh'});
 </script></body></html>`;
 }
@@ -179,6 +202,12 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                 case 'run': sendPromptToChat(`run ${m.folder}`); return;
                 case 'scenario': if (ws) { const sc = path.join(ws, 'autotest', m.folder, 'test_scenario.md'); if (fs.existsSync(sc)) { vscode.window.showTextDocument(vscode.Uri.file(sc)); } else { vscode.window.showWarningMessage(`Scenár pre ${m.folder} zatiaľ neexistuje.`); } } return;
                 case 'report': if (ws) { showReportPanel(ws, m.folder); } return;
+                case 'loadBugs': {
+                    const res = await vscode.commands.executeCommand('autotest.fetchTfsBugs');
+                    view.webview.postMessage({ type: 'bugs', payload: res });
+                    return;
+                }
+                case 'bugTest': sendPromptToChat(`bug #${m.id}`); return;
                 case 'saveSettings':
                     await saveUserRole(this.ctx, m.role);
                     await saveEnvironmentConfig(this.ctx, { url: m.appUrl, appType: m.appType, environment: 'local' });
@@ -186,7 +215,7 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                     if (m.password) { await saveLoginPassword(this.ctx, m.password); }
                     await saveDebugConfig(this.ctx, { headless: !!m.headless, slowMo: m.headless ? 0 : 100 });
                     if (m.model) { await savePreferredCodeModel(this.ctx, m.model); }
-                    await saveTfsConfig(this.ctx, { enabled: !!m.tfs, organization: m.tfsOrg || undefined, project: m.tfsProject || undefined });
+                    await saveTfsConfig(this.ctx, { enabled: !!m.tfs, organization: m.tfsOrg || undefined, project: m.tfsProject || undefined, assignedToMe: !!m.tfsMe, states: m.tfsStates || undefined, types: m.tfsTypes || undefined });
                     if (m.tfsPat) { await saveTfsPat(this.ctx, m.tfsPat); }
                     if (ws && !fs.existsSync(path.join(ws, 'autotest'))) { fs.mkdirSync(path.join(ws, 'autotest'), { recursive: true }); }
                     vscode.window.showInformationMessage('✅ Nastavenia uložené.');

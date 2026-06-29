@@ -11,6 +11,9 @@ export interface AutotestConfig {
     tfsEnabled: boolean;
     tfsOrganization?: string;
     tfsProject?: string;
+    tfsAssignedToMe?: boolean;
+    tfsStates?: string;
+    tfsTypes?: string;
     skipAvailabilityCheck?: boolean;
     preferredCodeModelId?: string;
     preferredVisionModelId?: string;
@@ -37,6 +40,9 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         enabled: boolean;
         organization?: string;
         project?: string;
+        assignedToMe?: boolean;
+        states?: string;
+        types?: string;
     }>('tfsConfig');
     
     const loginConfig = context.workspaceState.get<{
@@ -66,6 +72,9 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         tfsEnabled: tfsConfig?.enabled || false,
         tfsOrganization: tfsConfig?.organization,
         tfsProject: tfsConfig?.project,
+        tfsAssignedToMe: tfsConfig?.assignedToMe !== undefined ? tfsConfig.assignedToMe : true,
+        tfsStates: tfsConfig?.states || 'New, Active, Ready',
+        tfsTypes: tfsConfig?.types || 'Bug, Requirement, Test Case',
         skipAvailabilityCheck: envConfig?.skipAvailabilityCheck || false,
         preferredCodeModelId,
         preferredVisionModelId,
@@ -113,6 +122,9 @@ export async function saveTfsConfig(
         enabled: boolean;
         organization?: string;
         project?: string;
+        assignedToMe?: boolean;
+        states?: string;
+        types?: string;
     }
 ): Promise<void> {
     await context.workspaceState.update('tfsConfig', config);

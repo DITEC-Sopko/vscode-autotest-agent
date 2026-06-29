@@ -107,7 +107,8 @@ export class TfsClient {
      */
     async getMyWorkItems(
         states: string[] = ['New', 'Active', 'Ready'],
-        workItemTypes: string[] = ['Bug', 'Requirement', 'Test Case']
+        workItemTypes: string[] = ['Bug', 'Requirement', 'Test Case'],
+        assignedToMe: boolean = true
     ): Promise<Array<{ id: number; title: string; type: string; state: string; url: string }>> {
         if (!this.connection) {
             throw new Error('Nie si pripojený k TFS');
@@ -116,11 +117,12 @@ export class TfsClient {
         try {
             const witApi = await this.connection.getWorkItemTrackingApi();
 
+            const assignedClause = assignedToMe ? `AND [System.AssignedTo] = @Me` : '';
             const wiql = `
                 SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State]
                 FROM WorkItems
                 WHERE [System.TeamProject] = '${this.projectName}'
-                    AND [System.AssignedTo] = @Me
+                    ${assignedClause}
                     AND [System.State] IN (${states.map(s => `'${s}'`).join(', ')})
                     AND [System.WorkItemType] IN (${workItemTypes.map(t => `'${t}'`).join(', ')})
                 ORDER BY [System.ChangedDate] DESC

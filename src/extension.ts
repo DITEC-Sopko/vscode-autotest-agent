@@ -29,7 +29,21 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('autotest.settings', () => openSettings(context)),
         vscode.commands.registerCommand('autotest.tfsSetup', () => setupTfs(context)),
         vscode.commands.registerCommand('autotest.model', () => pickModel(context)),
-        vscode.commands.registerCommand('autotest.openDashboard', () => vscode.commands.executeCommand('autotest.dashboardView.focus'))
+        vscode.commands.registerCommand('autotest.openDashboard', () => vscode.commands.executeCommand('autotest.dashboardView.focus')),
+        vscode.commands.registerCommand('autotest.fetchTfsBugs', async () => {
+            const cfg = loadConfiguration(context);
+            if (!cfg.tfsEnabled) { return { ok: false, error: 'TFS nie je zapnuté v Nastaveniach.' }; }
+            const tfs = await ensureTfs(context);
+            if (!tfs) { return { ok: false, error: 'Pripojenie k TFS zlyhalo (skontroluj organization/projekt/token).' }; }
+            try {
+                const states = (cfg.tfsStates || 'New, Active, Ready').split(',').map(s => s.trim()).filter(Boolean);
+                const types = (cfg.tfsTypes || 'Bug, Requirement, Test Case').split(',').map(s => s.trim()).filter(Boolean);
+                const bugs = await tfs.getMyWorkItems(states, types, cfg.tfsAssignedToMe !== false);
+                return { ok: true, bugs };
+            } catch (e: any) {
+                return { ok: false, error: e?.message || 'Načítanie work items zlyhalo.' };
+            }
+        })
     );
 
     const agent = vscode.chat.createChatParticipant('autotest.agent', async (request, _ctx, response, token) => {

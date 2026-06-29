@@ -383,18 +383,41 @@ async function runExistingTest(
     // Find test file
     const pyFile = path.join(testDir, 'test.spec.py');
     const jsFile = path.join(testDir, 'test.spec.js');
-    
+
+    const cfg = loadConfiguration(context);
+    const isDesktopMcp = cfg.appType === 'desktop';
+
     let testFile = '';
     let testCommand = '';
-    
+
+    if (isDesktopMcp) {
+        // Desktop beží cez Terminator MCP — žiadny lokálny skript, deleguj do agent mode.
+        const scenarioExists = fs.existsSync(path.join(testDir, 'test_scenario.md'));
+        response.markdown(scenarioExists
+            ? `▶️ Desktop test \`${testFolderName}\` beží cez MCP v Copilot agent mode. Spúšťam podľa scenára...\n\n`
+            : `ℹ️ Test \`${testFolderName}\` nemá scenár. Vytvor ho cez \`@autotest test\` alebo \`@autotest regenerate ${testFolderName}\`.\n\n`);
+        const opened = await sendAutotestPromptToChat(`regenerate ${testFolderName}`);
+        response.markdown(opened
+            ? `✅ Odoslané do chatu: \`@autotest regenerate ${testFolderName}\`\n\n`
+            : `📋 Príkaz v schránke: \`@autotest regenerate ${testFolderName}\`\n\n`);
+        return;
+    }
+
     if (fs.existsSync(pyFile)) {
         const pyExe = await findPythonExecutable() || 'python';
         testFile = pyFile; testCommand = `"${pyExe}" "${pyFile}"`;
     } else if (fs.existsSync(jsFile)) {
         testFile = jsFile; testCommand = `node "${jsFile}"`;
     } else {
-        response.markdown(`❌ V priečinku \`autotest/${testFolderName}\` sa nenašiel žiadny test súbor.\n\n`);
-        response.markdown(`Pre web testy spusti pretestovanie cez Playwright MCP: \`@autotest regenerate ${testFolderName}\`\n\n`);
+        // MCP web test (žiadny code-gen skript) — spusti znovu cez agent mode podľa scenára.
+        const scenarioExists = fs.existsSync(path.join(testDir, 'test_scenario.md'));
+        response.markdown(scenarioExists
+            ? `▶️ Test \`${testFolderName}\` beží cez MCP v Copilot agent mode. Spúšťam podľa scenára...\n\n`
+            : `ℹ️ Test \`${testFolderName}\` nemá skript ani scenár. Vytvor ho cez \`@autotest regenerate ${testFolderName}\`.\n\n`);
+        const opened = await sendAutotestPromptToChat(`regenerate ${testFolderName}`);
+        response.markdown(opened
+            ? `✅ Odoslané do chatu: \`@autotest regenerate ${testFolderName}\`\n\n`
+            : `📋 Príkaz v schránke: \`@autotest regenerate ${testFolderName}\`\n\n`);
         return;
     }
     
@@ -573,6 +596,10 @@ function normalizeTestFolderName(value?: string): string {
 
 function getStatusFromReport(content: string): DashboardTestStatus {
     const upper = content.toUpperCase();
+    const verdict = upper.match(/VERDIKT:\s*\**\s*(PASSED|FAILED|SUCCESS|FAIL)/);
+    if (verdict) {
+        return verdict[1].startsWith('PASS') || verdict[1] === 'SUCCESS' ? 'success' : 'failed';
+    }
     const statusMatch = upper.match(/-\s*\*\*STATUS:\*\*\s*([^\n\r]+)/);
     if (statusMatch) {
         const statusValue = statusMatch[1].trim();
@@ -612,11 +639,106 @@ function mapHistoryResultToStatus(result?: BugHistoryItem['testResult']): Dashbo
     return 'unknown';
 }
 
+let reportPanel: vscode.WebviewPanel | undefined;
+
+function showReportPanel(workspacePath: string, folderName: string, reportPath: string): void {
+    const testDir = path.join(workspacePath, 'autotest', folderName);
+    const reportMd = (() => { try { return fs.readFileSync(reportPath, 'utf-8'); } catch { return ''; } })();
+    const status = getStatusFromReport(reportMd);
+
+    let transcript = '';
+    const transcriptPath = path.join(testDir, 'transcript.md');
+    if (fs.existsSync(transcriptPath)) {
+        try { transcript = fs.readFileSync(transcriptPath, 'utf-8'); } catch { transcript = ''; }
+    }
+
+    if (!reportPanel) {
+        reportPanel = vscode.window.createWebviewPanel(
+            'autotest.report',
+            `Report: ${folderName}`,
+            vscode.ViewColumn.Active,
+            { enableScripts: true, localResourceRoots: [vscode.Uri.file(testDir)], retainContextWhenHidden: true }
+        );
+        reportPanel.onDidDispose(() => { reportPanel = undefined; });
+    } else {
+        reportPanel.title = `Report: ${folderName}`;
+    }
+    reportPanel.reveal(vscode.ViewColumn.Active);
+
+    const stepsDir = path.join(testDir, 'steps');
+    const stepImgs: { uri: string; caption: string }[] = [];
+    if (fs.existsSync(stepsDir)) {
+        const files = fs.readdirSync(stepsDir)
+            .filter((f) => /\.(png|jpe?g|webp)$/i.test(f))
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        for (const f of files) {
+            stepImgs.push({
+                uri: reportPanel.webview.asWebviewUri(vscode.Uri.file(path.join(stepsDir, f))).toString(),
+                caption: f.replace(/\.(png|jpe?g|webp)$/i, '').replace(/[_-]/g, ' ')
+            });
+        }
+    }
+    if (stepImgs.length === 0) {
+        for (const f of ['init_screenshot.png', 'success_screenshot.png', 'error_screenshot.png', 'not_found_screenshot.png']) {
+            const p = path.join(testDir, f);
+            if (fs.existsSync(p)) {
+                stepImgs.push({
+                    uri: reportPanel.webview.asWebviewUri(vscode.Uri.file(p)).toString(),
+                    caption: f.replace(/\.png$/i, '').replace(/_/g, ' ')
+                });
+            }
+        }
+    }
+
+    const badge = status === 'success' ? '✅ PASSED' : status === 'failed' ? '❌ FAILED' : '❔ N/A';
+    const badgeColor = status === 'success' ? '#2ea043' : status === 'failed' ? '#d1242f' : '#888';
+    const stepsHtml = stepImgs.length
+        ? stepImgs.map((s, i) => `<div class="step"><div class="step-h">Krok ${i + 1}: ${escapeHtml(s.caption)}</div><img src="${s.uri}" alt="${escapeHtml(s.caption)}" /></div>`).join('')
+        : '<p class="muted">Žiadne screenshoty.</p>';
+
+    reportPanel.webview.html = `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8" />
+<style>
+body{font-family:var(--vscode-font-family);padding:16px;color:var(--vscode-foreground);}
+.badge{display:inline-block;padding:4px 14px;border-radius:14px;color:#fff;font-weight:600;background:${badgeColor};}
+h1{font-size:18px;margin:8px 0;}
+.summary{background:var(--vscode-textBlockQuote-background);border-left:3px solid ${badgeColor};padding:10px 14px;border-radius:4px;white-space:pre-wrap;font-size:13px;}
+.step{margin:14px 0;border:1px solid var(--vscode-panel-border);border-radius:6px;overflow:hidden;}
+.step-h{padding:8px 12px;background:var(--vscode-editorWidget-background);font-weight:600;font-size:13px;}
+.step img{display:block;width:100%;}
+.muted{opacity:.6;}
+pre{white-space:pre-wrap;font-size:12px;}
+</style></head><body>
+<h1>${escapeHtml(folderName)} <span class="badge">${badge}</span></h1>
+<div class="summary">${escapeHtml(reportMd || 'Report bez obsahu.')}</div>
+<h2>Kroky</h2>
+${stepsHtml}
+${transcript ? `<h2>Transcript</h2><pre>${escapeHtml(transcript)}</pre>` : ''}
+</body></html>`;
+}
+
+function resolveReportPath(testDir: string): string {
+    const legacy = path.join(testDir, 'test_result.md');
+    const mcp = path.join(testDir, 'result.md');
+    const legacyExists = fs.existsSync(legacy);
+    const mcpExists = fs.existsSync(mcp);
+    if (legacyExists && mcpExists) {
+        // Preferuj najnovší report (MCP result.md vs. legacy test_result.md)
+        try {
+            return fs.statSync(mcp).mtimeMs >= fs.statSync(legacy).mtimeMs ? mcp : legacy;
+        } catch {
+            return mcp;
+        }
+    }
+    if (mcpExists) { return mcp; }
+    if (legacyExists) { return legacy; }
+    return '';
+}
+
 function buildDashboardTests(workspacePath: string, tests: string[], history: BugHistoryItem[]): DashboardTestItem[] {
     return tests.map((testName) => {
         const testDir = path.join(workspacePath, 'autotest', testName);
-        const reportPath = path.join(testDir, 'test_result.md');
-        const hasReport = fs.existsSync(reportPath);
+        const reportPath = resolveReportPath(testDir);
+        const hasReport = reportPath !== '';
 
         let status: DashboardTestStatus = 'unknown';
         let lastRunAt: string | undefined;
@@ -832,9 +954,34 @@ async function sendAutotestPromptToChat(prompt: string): Promise<boolean> {
     return false;
 }
 
+function reconcileHistoryFromReports(context: vscode.ExtensionContext, workspacePath: string): void {
+    const tests = listAutotestFolders(workspacePath);
+    const history = context.workspaceState.get<BugHistoryItem[]>('bugHistory') || [];
+    let changed = false;
+    for (const name of tests) {
+        const reportPath = resolveReportPath(path.join(workspacePath, 'autotest', name));
+        if (!reportPath) { continue; }
+        let status: DashboardTestStatus;
+        let mtime: Date;
+        try {
+            status = getStatusFromReport(fs.readFileSync(reportPath, 'utf-8'));
+            mtime = fs.statSync(reportPath).mtime;
+        } catch { continue; }
+        if (status !== 'success' && status !== 'failed') { continue; }
+        const ts = mtime.toISOString();
+        const exists = history.some((h) => h.description === name && h.timestamp === ts);
+        if (exists) { continue; }
+        const bugId = name.startsWith('bug_') ? name.replace(/^bug_/, '') : undefined;
+        history.unshift({ bugId, description: name, timestamp: ts, testResult: status });
+        changed = true;
+    }
+    if (changed) { void context.workspaceState.update('bugHistory', history.slice(0, 20)); }
+}
+
 function buildDashboardState(context: vscode.ExtensionContext) {
     const config = loadConfiguration(context);
     const workspacePath = getWorkspacePathOrNull();
+    if (workspacePath) { reconcileHistoryFromReports(context, workspacePath); }
     const tests = workspacePath ? listAutotestFolders(workspacePath) : [];
     const projectOverview = workspacePath ? readProjectOverview(workspacePath) : '';
     const runHistory = getBugHistory(context, 20);
@@ -842,6 +989,7 @@ function buildDashboardState(context: vscode.ExtensionContext) {
 
     const dashboardState: any = {
         hasWorkspace: Boolean(workspacePath),
+        initialized: Boolean(workspacePath && fs.existsSync(path.join(workspacePath, 'autotest'))),
         role: config.userRole,
         appType: config.appType,
         appUrl: config.appUrl,
@@ -1250,10 +1398,9 @@ function getAutotestDashboardHtml(webview: vscode.Webview): string {
             <button class="collapsible-header expanded" data-toggle="actions">⚡ Rýchle Akcie</button>
             <div class="section-content expanded" id="actions">
                 <div class="actions">
-                    <button class="primary" data-action="init">Inicializovať</button>
-                    <button class="secondary" data-action="tfs">TFS Setup</button>
-                    <button class="secondary" data-action="models">AI Modely</button>
-                    <button class="secondary" data-action="debug">Debug mód</button>
+                    <button class="primary" id="btnInit" data-action="init">Inicializovať projekt</button>
+                    <button class="primary" id="btnAddTest" data-action="addTest">➕ Pridať test</button>
+                    <button class="secondary" id="btnSettings" data-action="settings">⚙️ Zmena nastavení</button>
                     <button class="secondary" data-action="refresh">Obnoviť</button>
                     <button class="danger" data-action="reconfigure">Reset</button>
                 </div>
@@ -1372,6 +1519,14 @@ function getAutotestDashboardHtml(webview: vscode.Webview): string {
 
             appUrlFull.textContent = state.appUrl || '-';
             projectOverview.textContent = state.projectOverview || 'Subor autotest/project_overview.md zatial neexistuje.';
+
+            const initialized = !!state.initialized;
+            const btnInit = document.getElementById('btnInit');
+            const btnAddTest = document.getElementById('btnAddTest');
+            const btnSettings = document.getElementById('btnSettings');
+            if (btnInit) { btnInit.style.display = initialized ? 'none' : ''; }
+            if (btnAddTest) { btnAddTest.style.display = initialized ? '' : 'none'; }
+            if (btnSettings) { btnSettings.style.display = initialized ? '' : 'none'; }
 
             fillTestsOverview(state.testsWithStatus || []);
             fillHistory(state.runHistory || []);
@@ -1626,6 +1781,61 @@ function registerDashboardMessageHandler(
                 postState('Konfigurácia bola resetovaná alebo akcia zrušená.');
                 return;
             }
+            case 'settings': {
+                const choice = await vscode.window.showQuickPick(
+                    [
+                        { label: '⚙️ Aplikácia a prostredie', value: 'app', description: 'URL, typ, prostredie, rola' },
+                        { label: '🔗 TFS pripojenie', value: 'tfs', description: 'Server, projekt, token' },
+                        { label: '🤖 AI modely', value: 'models', description: 'Code + vision model' },
+                        { label: '🎬 Debug mód', value: 'debug', description: 'Headed / headless / slow' },
+                        { label: '♻️ Reset konfigurácie', value: 'reset', description: 'Vymazať a začať odznova' }
+                    ],
+                    { placeHolder: 'Čo chceš zmeniť?', ignoreFocusOut: true }
+                );
+                if (!choice) { postState('Nastavenia zatvorené.'); return; }
+                if (choice.value === 'app') { await vscode.commands.executeCommand('autotest.init'); }
+                else if (choice.value === 'tfs') { await vscode.commands.executeCommand('autotest.tfsSetup'); }
+                else if (choice.value === 'models') {
+                    await selectAIModel(context, 'code', true);
+                    await selectAIModel(context, 'vision', true);
+                }
+                else if (choice.value === 'debug') {
+                    const dbg = await vscode.window.showQuickPick(
+                        [
+                            { label: '👁️ Viditeľný browser (Headed)', value: 'visible' },
+                            { label: '⚡ Rýchly neviditeľný (Headless)', value: 'fast' },
+                            { label: '🎬 Pomalý viditeľný (Debug)', value: 'slow' }
+                        ],
+                        { placeHolder: 'Vyber mód testovania', ignoreFocusOut: true }
+                    );
+                    if (dbg?.value === 'visible') { await saveDebugConfig(context, { headless: false, slowMo: 100 }); }
+                    else if (dbg?.value === 'fast') { await saveDebugConfig(context, { headless: true, slowMo: 0 }); }
+                    else if (dbg?.value === 'slow') { await saveDebugConfig(context, { headless: false, slowMo: 500 }); }
+                }
+                else if (choice.value === 'reset') { await vscode.commands.executeCommand('autotest.reconfigure'); }
+                postState('Nastavenia aktualizované.');
+                return;
+            }
+            case 'addTest': {
+                const src = await vscode.window.showQuickPick(
+                    [
+                        { label: '✍️ Manuálny test', value: 'manual', description: 'Popíš test ručne (test_XXX)' },
+                        { label: '🐞 Z TFS bugu', value: 'tfs', description: 'Podľa čísla bugu (bug_<id>)' }
+                    ],
+                    { placeHolder: 'Ako chceš pridať test?', ignoreFocusOut: true }
+                );
+                if (!src) { postState('Pridanie testu zrušené.'); return; }
+                let cmd = 'test';
+                if (src.value === 'tfs') {
+                    const num = await vscode.window.showInputBox({ prompt: 'Číslo bugu z TFS', ignoreFocusOut: true });
+                    if (!num) { postState('Pridanie testu zrušené.'); return; }
+                    cmd = `over bug ${num.trim()}`;
+                }
+                const opened = await sendAutotestPromptToChat(cmd);
+                postState(opened ? `Odoslané do chatu: @autotest ${cmd}` : `Príkaz v schránke: @autotest ${cmd}`);
+                return;
+            }
+
             case 'run': {
                 const folderName = normalizeTestFolderName(String(message.folder || ''));
                 if (!folderName) {
@@ -1703,13 +1913,12 @@ function registerDashboardMessageHandler(
                     webview.postMessage({ type: 'status', payload: 'Nie je otvoreny projekt.' });
                     return;
                 }
-                const reportPath = path.join(workspacePath, 'autotest', folderName, 'test_result.md');
-                if (!fs.existsSync(reportPath)) {
-                    webview.postMessage({ type: 'status', payload: `Report neexistuje: autotest/${folderName}/test_result.md` });
+                const reportPath = resolveReportPath(path.join(workspacePath, 'autotest', folderName));
+                if (!reportPath) {
+                    webview.postMessage({ type: 'status', payload: `Report neexistuje: autotest/${folderName}` });
                     return;
                 }
-                const doc = await vscode.workspace.openTextDocument(reportPath);
-                await vscode.window.showTextDocument(doc, { preview: false });
+                showReportPanel(workspacePath, folderName, reportPath);
                 return;
             }
             default:

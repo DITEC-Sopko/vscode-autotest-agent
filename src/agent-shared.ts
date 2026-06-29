@@ -32,6 +32,18 @@ export function getNextBugNumber(workspacePath: string): number {
     return bugNumbers.length === 0 ? 1 : Math.max(...bugNumbers) + 1;
 }
 
+export function getNextTestNumber(workspacePath: string): number {
+    const autotestDir = path.join(workspacePath, 'autotest');
+    if (!fs.existsSync(autotestDir)) { return 1; }
+    const entries = fs.readdirSync(autotestDir);
+    const testNumbers: number[] = [];
+    for (const entry of entries) {
+        const match = entry.match(/^test_(\d+)$/);
+        if (match) { testNumbers.push(parseInt(match[1], 10)); }
+    }
+    return testNumbers.length === 0 ? 1 : Math.max(...testNumbers) + 1;
+}
+
 export function ensureGitignore(workspacePath: string): void {
     const gitignorePath = path.join(workspacePath, '.gitignore');
     const autotestEntries = [

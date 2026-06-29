@@ -15,7 +15,7 @@ import { getLoginPassword, AutotestConfig } from './config';
 import {
     execAsync,
     selectAIModel,
-    getNextBugNumber,
+    getNextTestNumber,
     ensureGitignore,
 } from './agent-shared';
 
@@ -100,6 +100,25 @@ function ensurePlaywrightMcpConfigured(workspacePath: string, headless: boolean)
     return true;
 }
 
+/**
+ * Zaistí auto-schvaľovanie nástrojov v agent mode pre tento workspace, aby sa
+ * Playwright MCP nepýtal pred každou akciou. Vráti true ak zmenené.
+ */
+function ensureAutoApproveConfigured(workspacePath: string): boolean {
+    const vscodeDir = path.join(workspacePath, '.vscode');
+    const settingsPath = path.join(vscodeDir, 'settings.json');
+    let root: any = {};
+    if (fs.existsSync(settingsPath)) {
+        try { root = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) || {}; } catch { root = {}; }
+    }
+    if (typeof root !== 'object' || root === null) { root = {}; }
+    if (root['chat.tools.autoApprove'] === true) { return false; }
+    root['chat.tools.autoApprove'] = true;
+    if (!fs.existsSync(vscodeDir)) { fs.mkdirSync(vscodeDir, { recursive: true }); }
+    fs.writeFileSync(settingsPath, JSON.stringify(root, null, 2) + '\n', 'utf-8');
+    return true;
+}
+
 // ─── Handoff do agent mode ─────────────────────────────────────────────────────
 
 /**
@@ -114,6 +133,11 @@ function buildAgentInstructions(bugFolderName: string, config: AutotestConfig): 
 
 Otestuj scenár pomocou **Playwright MCP** nástrojov (MCP server \`playwright\`).
 Nepíš žiadny \`test.spec.js\` — riaď prehliadač priamo cez MCP nástroje.
+
+## Režim: AUTONÓMNY
+- Pracuj **samostatne a bez potvrdzovania** — kliky, písanie, screenshoty a snapshoty rob automaticky, neproš ma o povolenie pred každou akciou.
+- Na začiatku naplíň 1 vetu: „Spustil som autom. test, klikám sám, ozvem sa len ak niečo potrebujem.“
+- **Spýtaj sa používateľa IBA ak:** (a) je potrebné prihlásenie a nemáš údaje, (b) máš niečo vyplniť/vybrať a v scenári to nie je popísané. Inak NIKDY neprerušuj.
 
 - **Scenár:** \`test_scenario.md\` v tomto priečinku (\`autotest/${bugFolderName}/\`)
 - **Aplikácia:** ${config.appUrl}
@@ -166,9 +190,13 @@ async function delegateToAgentMode(
     // MCP server config
     const headless = config.headlessMode !== false;
     const changed = ensurePlaywrightMcpConfigured(workspacePath, headless);
+    const autoApprove = ensureAutoApproveConfigured(workspacePath);
     response.markdown(changed
         ? `🧩 **Playwright MCP nakonfigurovaný** v \`.vscode/mcp.json\` (${headless ? 'headless' : 'headed'}).\n\n`
         : `🧩 Playwright MCP je už nakonfigurovaný (\`.vscode/mcp.json\`, ${headless ? 'headless' : 'headed'}).\n\n`);
+    if (autoApprove) {
+        response.markdown(`⚡ Zapol som **auto-schvaľovanie nástrojov** (\`chat.tools.autoApprove\`) — agent kliká automaticky, pýta sa len pri prihlásení/chýbajúcom kroku.\n\n`);
+    }
 
     // Pokyn pre agenta (bez hesla)
     const instructions = buildAgentInstructions(bugFolderName, config);
@@ -237,7 +265,7 @@ export async function runWebTest(
     response.markdown(`✅ **Test scenár vytvorený!**\n\n`);
 
     // Priečinok bugu
-    const testFolderName = bugId ? `bug_${bugId}` : `bug_${getNextBugNumber(workspacePath).toString().padStart(3, '0')}`;
+    const testFolderName = bugId ? `bug_${bugId}` : `test_${getNextTestNumber(workspacePath).toString().padStart(3, '0')}`;
     const autotestDir = path.join(workspacePath, 'autotest');
     if (!fs.existsSync(autotestDir)) {
         fs.mkdirSync(autotestDir, { recursive: true });

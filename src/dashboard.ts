@@ -89,22 +89,27 @@ body{font-family:var(--vscode-font-family);padding:16px;color:var(--vscode-foreg
 
 function html(): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-body{font-family:var(--vscode-font-family);font-size:13px;color:var(--vscode-foreground);padding:8px}
-.toolbar{display:flex;gap:6px;margin-bottom:10px}
+body{font-family:var(--vscode-font-family);font-size:13px;color:var(--vscode-foreground);padding:8px;min-width:240px;box-sizing:border-box}
+.toolbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:none;padding:5px 10px;border-radius:4px;cursor:pointer}
 button.sec{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}
 .meta{opacity:.8;margin-bottom:10px;line-height:1.6}
-.filters{display:flex;gap:4px;margin:8px 0}.filters button{font-size:11px;padding:2px 8px}
-.card{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px}
+.filters{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}.filters button{font-size:11px;padding:2px 8px}
+.card{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px}
 .card.p{border-left-color:#2ea043}.card.f{border-left-color:#d1242f}.card.u{border-left-color:#888}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.card .top{display:flex;align-items:center;gap:8px;min-width:0}
+.card .bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap;flex:none}
 .badge.p{background:rgba(46,160,67,.18);color:#3fb950}.badge.f{background:rgba(209,36,47,.18);color:#f85149}.badge.u{background:rgba(136,136,136,.18);color:#9aa0a6}
-.name{flex:1;font-weight:600}.time{opacity:.6;font-size:11px}.acts button{margin-left:4px;font-size:11px;padding:2px 8px}
+.name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.time{opacity:.6;font-size:11px;margin-right:auto}
+.acts{display:flex;gap:4px;flex-wrap:wrap}.acts button{font-size:11px;padding:2px 8px}
 #add{background:#8957e5;color:#fff;font-weight:600}
 h3{margin:12px 0 6px}
+.sec-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin:4px 0 8px}
 .panel{display:none;border:1px solid var(--vscode-panel-border);border-radius:6px;padding:10px;margin-bottom:10px}
 .panel.open{display:block}.row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
-label{font-size:11px;opacity:.8}input,select{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);padding:4px;border-radius:4px}
+label{font-size:11px;opacity:.8}input,select{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);padding:4px;border-radius:4px;max-width:100%;box-sizing:border-box}
 .chk{flex-direction:row;align-items:center;gap:6px}.chk input{width:auto}
 </style></head><body>
 <div class="toolbar"><button id="add">+ Test</button><button class="sec" id="set">⚙ Nastavenia</button><button class="sec" id="ref">⟳</button></div>
@@ -118,7 +123,8 @@ label{font-size:11px;opacity:.8}input,select{background:var(--vscode-input-backg
  <div class="row"><label>Heslo (uloží sa pri vyplnení)</label><input type="password" id="s_pwd"/></div>
  <div class="row chk"><input type="checkbox" id="s_head"/><label>Headless (neviditeľný)</label></div>
  <div class="row"><label>AI model</label><select id="s_model"></select></div>
- <hr style="border-color:var(--vscode-panel-border);width:100%"/>
+ <hr style="border-color:var(--vscode-panel-border);width:100%;margin:6px 0 12px"/>
+ <div class="sec-h">TFS / Azure DevOps</div>
  <div class="row chk"><input type="checkbox" id="s_tfs"/><label>TFS zapnuté</label></div>
  <div class="row"><label>TFS organization URL</label><input id="s_tfsorg"/></div>
  <div class="row"><label>TFS projekt</label><input id="s_tfsproj"/></div>
@@ -137,7 +143,7 @@ document.getElementById('s_save').onclick=()=>send('saveSettings',{role:s_role.v
 document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{flt=b.dataset.f;render()});
 function render(){
  const m=document.getElementById('meta');
- m.textContent=st.initialized?('Rola: '+st.role+' · '+st.appType+' · '+(st.appUrl||'')):'Projekt nie je inicializovaný.';
+ m.textContent=st.initialized?('Rola: '+st.role+' · '+st.appType+' · '+(st.appUrl||'')+(st.tfsEnabled?(' · TFS: '+(st.tfsProject||'zapnuté')):' · TFS: vypnuté')):'Projekt nie je inicializovaný.';
  s_role.value=st.role==='unknown'?'developer':st.role;s_type.value=st.appType||'web';s_url.value=st.appUrl||'';
  s_login.checked=!!st.loginRequired;s_user.value=st.username||'';s_head.checked=st.headless!==false;
  s_tfs.checked=!!st.tfsEnabled;s_tfsorg.value=st.tfsOrg||'';s_tfsproj.value=st.tfsProject||'';
@@ -147,8 +153,9 @@ function render(){
   const c=x.status==='passed'?'p':x.status==='failed'?'f':'u';
   const lbl=x.status==='passed'?'✓ PASSED':x.status==='failed'?'✕ FAILED':'? N/A';
   const d=document.createElement('div');d.className='card '+c;
-  d.innerHTML='<span class="badge '+c+'">'+lbl+'</span><span class="name">'+x.name+'</span><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button>Spustiť</button><button class="sec">Report</button></span>';
-  const[run,rep]=d.querySelectorAll('button');run.onclick=()=>send('run',{folder:x.name});rep.onclick=()=>send('report',{folder:x.name});
+  d.innerHTML='<div class="top"><span class="badge '+c+'">'+lbl+'</span><span class="name" title="'+x.name+'">'+x.name+'</span></div>'+
+   '<div class="bot"><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button data-a="run">Spustiť</button><button class="sec" data-a="scenario">Scenár</button><button class="sec" data-a="report">Report</button></span></div>';
+  d.querySelectorAll('button').forEach(b=>b.onclick=()=>send(b.dataset.a,{folder:x.name}));
   t.appendChild(d);});
 }
 window.addEventListener('message',e=>{if(e.data.type==='state'){st=e.data.payload;render()}});
@@ -170,6 +177,7 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                 case 'init': await vscode.commands.executeCommand('autotest.init'); await post(); return;
                 case 'add': sendPromptToChat('test'); return;
                 case 'run': sendPromptToChat(`run ${m.folder}`); return;
+                case 'scenario': if (ws) { const sc = path.join(ws, 'autotest', m.folder, 'test_scenario.md'); if (fs.existsSync(sc)) { vscode.window.showTextDocument(vscode.Uri.file(sc)); } else { vscode.window.showWarningMessage(`Scenár pre ${m.folder} zatiaľ neexistuje.`); } } return;
                 case 'report': if (ws) { showReportPanel(ws, m.folder); } return;
                 case 'saveSettings':
                     await saveUserRole(this.ctx, m.role);

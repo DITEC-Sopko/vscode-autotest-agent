@@ -32,22 +32,3 @@ export function ensureMcpConfigured(workspacePath: string, platform: Platform, h
     fs.writeFileSync(mcpPath, JSON.stringify(root, null, 2) + '\n', 'utf-8');
     return true;
 }
-
-/**
- * Zapne auto-schvaľovanie nástrojov v agent mode pre tento workspace.
- * Vráti true ak sa nastavenie zmenilo.
- */
-export function ensureAutoApprove(workspacePath: string): boolean {
-    const vscodeDir = path.join(workspacePath, '.vscode');
-    const settingsPath = path.join(vscodeDir, 'settings.json');
-    let root: any = {};
-    if (fs.existsSync(settingsPath)) {
-        try { root = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) || {}; } catch { root = {}; }
-    }
-    if (typeof root !== 'object' || root === null) { root = {}; }
-    if (root['chat.tools.autoApprove'] === true) { return false; }
-    root['chat.tools.autoApprove'] = true;
-    if (!fs.existsSync(vscodeDir)) { fs.mkdirSync(vscodeDir, { recursive: true }); }
-    fs.writeFileSync(settingsPath, JSON.stringify(root, null, 2) + '\n', 'utf-8');
-    return true;
-}

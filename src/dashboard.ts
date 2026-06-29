@@ -95,10 +95,10 @@ button{background:var(--vscode-button-background);color:var(--vscode-button-fore
 button.sec{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}
 .meta{opacity:.8;margin-bottom:10px;line-height:1.6}
 .filters{display:flex;gap:4px;margin:8px 0}.filters button{font-size:11px;padding:2px 8px}
-.card{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid;border-radius:6px;margin-bottom:6px;overflow:hidden}
-.card.p{border-color:#2ea043;background:rgba(46,160,67,.10)}.card.f{border-color:#d1242f;background:rgba(209,36,47,.10)}.card.u{border-color:#888;background:rgba(136,136,136,.08)}
-.bar{align-self:stretch;width:18px;border-radius:4px;color:#fff;font-weight:700;font-size:9px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;text-orientation:upright}
-.bar.p{background:#2ea043}.bar.f{background:#d1242f}.bar.u{background:#888}
+.card{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px}
+.card.p{border-left-color:#2ea043}.card.f{border-left-color:#d1242f}.card.u{border-left-color:#888}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.badge.p{background:rgba(46,160,67,.18);color:#3fb950}.badge.f{background:rgba(209,36,47,.18);color:#f85149}.badge.u{background:rgba(136,136,136,.18);color:#9aa0a6}
 .name{flex:1;font-weight:600}.time{opacity:.6;font-size:11px}.acts button{margin-left:4px;font-size:11px;padding:2px 8px}
 #add{background:#8957e5;color:#fff;font-weight:600}
 h3{margin:12px 0 6px}
@@ -145,9 +145,9 @@ function render(){
  const t=document.getElementById('tests');t.innerHTML='';
  (st.tests||[]).filter(x=>flt==='all'||x.status===flt).forEach(x=>{
   const c=x.status==='passed'?'p':x.status==='failed'?'f':'u';
-  const lbl=x.status==='passed'?'PASSED':x.status==='failed'?'FAILED':'N/A';
+  const lbl=x.status==='passed'?'✓ PASSED':x.status==='failed'?'✕ FAILED':'? N/A';
   const d=document.createElement('div');d.className='card '+c;
-  d.innerHTML='<span class="bar '+c+'">'+lbl+'</span><span class="name">'+x.name+'</span><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button>Spustiť</button><button class="sec">Report</button></span>';
+  d.innerHTML='<span class="badge '+c+'">'+lbl+'</span><span class="name">'+x.name+'</span><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button>Spustiť</button><button class="sec">Report</button></span>';
   const[run,rep]=d.querySelectorAll('button');run.onclick=()=>send('run',{folder:x.name});rep.onclick=()=>send('report',{folder:x.name});
   t.appendChild(d);});
 }

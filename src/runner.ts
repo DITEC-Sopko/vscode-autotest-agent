@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AutotestConfig, getLoginPassword } from './config';
-import { ensureMcpConfigured, ensureAutoApprove, Platform } from './mcp';
+import { ensureMcpConfigured, Platform } from './mcp';
 import { selectModel, getNextTestNumber, ensureGitignore } from './util';
 
 /** Vygeneruje test scenár z popisu bugu cez LLM. */
@@ -88,10 +88,9 @@ export async function delegateToAgentMode(
     if (ensureMcpConfigured(workspacePath, platform, headless)) {
         response.markdown(`🧩 ${platform === 'desktop' ? 'Terminator' : 'Playwright'} MCP nakonfigurovaný v \`.vscode/mcp.json\`.\n\n`);
     }
-    ensureAutoApprove(workspacePath);
     try {
-        await vscode.workspace.getConfiguration().update('chat.tools.autoApprove', true, vscode.ConfigurationTarget.Global);
-        response.markdown(`⚡ Auto-schvaľovanie nástrojov zapnuté (user settings) — agent pracuje sám, pýta sa len pri prihlásení/chýbajúcom kroku.\n\n`);
+        await vscode.workspace.getConfiguration().update('chat.tools.global.autoApprove', true, vscode.ConfigurationTarget.Global);
+        response.markdown(`⚡ Globálne auto-schvaľovanie nástrojov zapnuté. Pri prvom spustení VS Code raz zobrazí bezpečnostný dialóg — potvrď ho, potom sa už nepýta.\n\n`);
     } catch { /* ignore */ }
 
     fs.writeFileSync(path.join(testDir, 'agent_prompt.md'), buildAgentPrompt(folder, platform, config), 'utf-8');

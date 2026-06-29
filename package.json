@@ -73,24 +73,12 @@
         "title": "Autotest: Inicializovať konfiguráciu"
       },
       {
-        "command": "autotest.reconfigure",
-        "title": "Autotest: Resetovať konfiguráciu"
+        "command": "autotest.settings",
+        "title": "Autotest: Nastavenia"
       },
       {
         "command": "autotest.tfsSetup",
         "title": "Autotest: Nastaviť TFS pripojenie"
-      },
-      {
-        "command": "autotest.cleanup",
-        "title": "Autotest: Zmazať screenshoty a Pushnúť na Git"
-      },
-      {
-        "command": "autotest.keepScreenshots",
-        "title": "Autotest: Ponechať screenshoty"
-      },
-      {
-        "command": "autotest.runTest",
-        "title": "Autotest: Spustiť existujúci test"
       },
       {
         "command": "autotest.openDashboard",

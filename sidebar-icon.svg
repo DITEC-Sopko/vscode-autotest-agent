@@ -1,32 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Hľadáčik / Pasca (3 rohy, pravý dolný chýba, tam bude robot) -->
-    <path d="M3 8V5a2 2 0 0 1 2-2h3" opacity="0.5"/>
-    <path d="M16 3h3a2 2 0 0 1 2 2v3" opacity="0.5"/>
-    <path d="M8 21H5a2 2 0 0 1-2-2v-3" opacity="0.5"/>
+    <!-- HLAVA ROBOTA (Vľavo) -->
+    <rect x="2" y="8" width="9" height="9" rx="2" />
     
-    <!-- CHROBÁK (Zmenšený a posunutý mierne vľavo) -->
-    <!-- Telo -->
-    <rect x="4" y="7" width="6" height="10" rx="3" />
-    <!-- Hlavička -->
-    <path d="M5 7V5.5A2 2 0 0 1 9 5.5V7" />
-    <!-- Tykadlá -->
-    <path d="M5.5 4L4 2" />
-    <path d="M8.5 4l1.5-2" />
-    <!-- Nožičky -->
-    <path d="M4 10H1.5" />
-    <path d="M4 14H1.5" />
-    <path d="M10 10h3" />
-    <path d="M10 14h2" />
+    <!-- Anténka -->
+    <path d="M6.5 8V4.5" />
+    <circle cx="6.5" cy="3.5" r="1.2" fill="currentColor" stroke="none" />
+    
+    <!-- Oči robota (Hrubšie body) -->
+    <path d="M4.5 11.5v.01" stroke-width="2" />
+    <path d="M8.5 11.5v.01" stroke-width="2" />
+    
+    <!-- Ústa robota -->
+    <path d="M5.5 14h2" stroke-width="1" />
 
-    <!-- AI ROBOT (Stojí vpravo dole a sleduje chrobáka) -->
-    <!-- Telo / Hlava robota -->
-    <rect x="14" y="14" width="8" height="7" rx="2" />
-    <!-- Anténka s guličkou -->
-    <path d="M18 14v-2" />
-    <circle cx="18" cy="11" r="1.2" fill="currentColor" stroke="none" />
-    <!-- Oči (Hrubšie bodky) -->
-    <path d="M16 16.5v.01" stroke-width="2" />
-    <path d="M20 16.5v.01" stroke-width="2" />
-    <!-- Senzor / Pusa -->
-    <path d="M16.5 19h3" stroke-width="1" />
+    <!-- ROBOTICKÁ RUKA (Drží skúmavku) -->
+    <path d="M11 13h3" />
+    <path d="M14 12v2" /> <!-- Klepeto -->
+
+    <!-- SKÚMAVKA (Vpravo) -->
+    <!-- Okraj (Hrdlo) skúmavky -->
+    <path d="M13 5h6" />
+    <!-- Sklenené telo (Zaguľatené dno) -->
+    <path d="M14 5v12a2 2 0 0 0 4 0V5" />
+    
+    <!-- Hladina testovacej kvapaliny -->
+    <path d="M14 11h4" opacity="0.6" />
+    <!-- Bublinky v kvapaline -->
+    <path d="M16 14.5v.01" stroke-width="2" />
+    <path d="M15 16.5v.01" stroke-width="1.5" />
+
+    <!-- AI KÚZLO (Hviezdička vpravo hore) -->
+    <path d="M19 3.5 Q19 5.5 17 5.5 Q19 5.5 19 7.5 Q19 5.5 21 5.5 Q19 5.5 19 3.5 Z" fill="currentColor" stroke="none" />
 </svg>

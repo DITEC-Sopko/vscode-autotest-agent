@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.3.2]
+
+### Added ✨
+- **Ikona rozšírenia** (`icon.png`) — zobrazuje sa v zozname Extensions aj v Marketplace.
+
 ## [0.3.1]
 
 ### Removed 🗑️

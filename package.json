@@ -4,6 +4,11 @@
   "description": "AI agent, ktorý overí bug či scenár priamym ovládaním aplikácie cez MCP (Playwright/Terminator) v GitHub Copilot agent mode.",
   "version": "0.3.0",
   "license": "MIT",
+  "publisher": "ditec-sopko",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DITEC-Sopko/vscode-autotest-agent.git"
+  },
   "engines": {
     "vscode": "^1.120.0"
   },

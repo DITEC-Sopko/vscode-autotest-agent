@@ -27,6 +27,25 @@ MCP servery sa sťahujú automaticky cez `npx` pri prvom spustení testu.
 
 ---
 
+## Inštalácia
+
+Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`:
+
+[⬇️ **Stiahnuť najnovší `.vsix`**](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.3.0.vsix)
+
+1. Stiahni súbor `autotest-agent-0.3.0.vsix`.
+2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).
+3. Klikni na **`...`** (vpravo hore) → **Install from VSIX…**.
+4. Vyber stiahnutý `.vsix` a potvrď.
+
+Alebo cez príkazový riadok:
+
+```bash
+code --install-extension autotest-agent-0.3.0.vsix
+```
+
+---
+
 ## Rýchly štart
 
 1. Otvor panel **Autotest** v Activity Bare → **Dashboard**.

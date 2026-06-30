@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.3.3]
+
+### Changed 🔄
+- Aktualizovaná ikona rozšírenia (`icon.png` pregenerovaný z upraveného `icon.svg`).
+
 ## [0.3.2]
 
 ### Added ✨

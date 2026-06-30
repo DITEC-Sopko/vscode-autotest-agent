@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { loadConfiguration } from './config';
 import { TfsClient } from './tfs-client';
 import { getTfsPat } from './config';
@@ -36,10 +38,15 @@ export function activate(context: vscode.ExtensionContext) {
             const tfs = await ensureTfs(context);
             if (!tfs) { return { ok: false, error: 'Pripojenie k TFS zlyhalo (skontroluj organization/projekt/token).' }; }
             try {
-                const states = (cfg.tfsStates || 'New, Active, Ready').split(',').map(s => s.trim()).filter(Boolean);
+                const states = (cfg.tfsStates || 'Proposed, Active').split(',').map(s => s.trim()).filter(Boolean);
                 const types = (cfg.tfsTypes || 'Bug, Requirement, Test Case').split(',').map(s => s.trim()).filter(Boolean);
                 const bugs = await tfs.getMyWorkItems(states, types, cfg.tfsAssignedToMe !== false);
-                return { ok: true, bugs };
+                const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                const withTest = bugs.map(b => ({
+                    ...b,
+                    hasTest: !!(ws && fs.existsSync(path.join(ws, 'autotest', `bug_${b.id}`)))
+                }));
+                return { ok: true, bugs: withTest };
             } catch (e: any) {
                 return { ok: false, error: e?.message || 'Načítanie work items zlyhalo.' };
             }

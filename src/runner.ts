@@ -88,10 +88,23 @@ export async function delegateToAgentMode(
     if (ensureMcpConfigured(workspacePath, platform, headless)) {
         response.markdown(`🧩 ${platform === 'desktop' ? 'Terminator' : 'Playwright'} MCP nakonfigurovaný v \`.vscode/mcp.json\`.\n\n`);
     }
+    // Vyšší limit krokov agenta (default je nízky → časté „Continue to iterate?").
+    // Scopujeme na TENTO workspace, ostatné projekty ostanú nedotknuté.
     try {
-        await vscode.workspace.getConfiguration().update('chat.tools.global.autoApprove', true, vscode.ConfigurationTarget.Global);
-        response.markdown(`⚡ Globálne auto-schvaľovanie nástrojov zapnuté. Pri prvom spustení VS Code raz zobrazí bezpečnostný dialóg — potvrď ho, potom sa už nepýta.\n\n`);
+        await vscode.workspace.getConfiguration().update('chat.agent.maxRequests', 100, vscode.ConfigurationTarget.Workspace);
     } catch { /* ignore */ }
+    // Auto-schvaľovanie nástrojov: skús najprv Workspace scope (len tento projekt).
+    // Ak to VS Code z bezpečnostných dôvodov nepovolí v workspace, fallback na Global.
+    let approveScope = 'len pre tento workspace';
+    try {
+        await vscode.workspace.getConfiguration().update('chat.tools.global.autoApprove', true, vscode.ConfigurationTarget.Workspace);
+    } catch {
+        try {
+            await vscode.workspace.getConfiguration().update('chat.tools.global.autoApprove', true, vscode.ConfigurationTarget.Global);
+            approveScope = 'globálne (workspace scope nie je pre túto bezpečnostnú voľbu povolený)';
+        } catch { /* ignore */ }
+    }
+    response.markdown(`⚡ Auto-schvaľovanie nástrojov (${approveScope}) a vyšší limit krokov agenta zapnuté. Pri prvom spustení VS Code raz zobrazí bezpečnostný dialóg — potvrď ho, potom sa už nepýta.\n\n`);
 
     fs.writeFileSync(path.join(testDir, 'agent_prompt.md'), buildAgentPrompt(folder, platform, config), 'utf-8');
     const password = config.loginRequired ? await getLoginPassword(context) : undefined;

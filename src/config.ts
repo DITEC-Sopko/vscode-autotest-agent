@@ -73,7 +73,7 @@ export function loadConfiguration(context: vscode.ExtensionContext): AutotestCon
         tfsOrganization: tfsConfig?.organization,
         tfsProject: tfsConfig?.project,
         tfsAssignedToMe: tfsConfig?.assignedToMe !== undefined ? tfsConfig.assignedToMe : true,
-        tfsStates: tfsConfig?.states || 'New, Active, Ready',
+        tfsStates: tfsConfig?.states || 'Proposed, Active',
         tfsTypes: tfsConfig?.types || 'Bug, Requirement, Test Case',
         skipAvailabilityCheck: envConfig?.skipAvailabilityCheck || false,
         preferredCodeModelId,

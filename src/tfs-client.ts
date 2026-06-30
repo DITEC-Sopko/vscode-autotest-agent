@@ -106,7 +106,7 @@ export class TfsClient {
      * Načíta bugy/requirements/test scénáre priradené aktuálnemu používateľovi
      */
     async getMyWorkItems(
-        states: string[] = ['New', 'Active', 'Ready'],
+        states: string[] = ['Proposed', 'Active'],
         workItemTypes: string[] = ['Bug', 'Requirement', 'Test Case'],
         assignedToMe: boolean = true
     ): Promise<Array<{ id: number; title: string; type: string; state: string; url: string }>> {

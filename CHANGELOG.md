@@ -2,6 +2,23 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.3.0]
+
+### Changed 🔄
+- **Prechod na MCP delegáciu** — testy už negenerujú Playwright/PowerShell skripty. Scenár vykoná GitHub Copilot agent mode cez MCP servery: web = Playwright MCP, desktop = Terminator MCP.
+- **Jednotný report** — výsledok je `result.md` s `VERDIKT: PASSED|FAILED`, zhrnutím a screenshotmi krokov v `steps/`.
+- Default TFS stavy zmenené na `Proposed, Active`.
+
+### Added ✨
+- **Dashboard sprievodca** inicializáciou v 3 krokoch (rola → aplikácia → prihlásenie → TFS).
+- **TFS discovery** z `mcp.json` a zvýraznenie bugov, ktoré už majú test.
+- Auto‑refresh dashboardu po dokončení testu.
+- Info nápoveda pre vytvorenie PAT tokenu priamo v UI.
+
+### Removed 🗑️
+- Vision API analýza screenshotov a generovanie test skriptov.
+- WinAppDriver backend (nahradený Terminator MCP).
+
 ## [0.2.0] - 2026-05-28
 
 ### Added ✨

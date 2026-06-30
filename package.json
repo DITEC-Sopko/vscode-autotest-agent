@@ -1,8 +1,8 @@
 {
   "name": "autotest-agent",
   "displayName": "Autotest Agent",
-  "description": "AI-powered automated testing with vision analysis for VS Code",
-  "version": "0.2.0",
+  "description": "AI agent, ktorý overí bug či scenár priamym ovládaním aplikácie cez MCP (Playwright/Terminator) v GitHub Copilot agent mode.",
+  "version": "0.3.0",
   "engines": {
     "vscode": "^1.120.0"
   },

@@ -12,9 +12,13 @@ export function ensureMcpConfigured(workspacePath: string, platform: Platform, h
     const vscodeDir = path.join(workspacePath, '.vscode');
     const mcpPath = path.join(vscodeDir, 'mcp.json');
 
+    // Pozn.: `--no-headless` už nie je podporované (headed je default). Headless → pridaj `--headless`, inak nič.
+    const playwrightArgs = ['-y', '@playwright/mcp@latest'];
+    if (headless) { playwrightArgs.push('--headless'); }
+    playwrightArgs.push('--output-dir', 'autotest/_mcp_output');
     const server = platform === 'desktop'
         ? { command: 'npx', args: ['-y', 'terminator-mcp-agent@latest'], env: { LOG_LEVEL: 'info' } }
-        : { command: 'npx', args: ['-y', '@playwright/mcp@latest', headless ? '--headless' : '--no-headless', '--output-dir', 'autotest/_mcp_output'] };
+        : { command: 'npx', args: playwrightArgs };
     const name = platform === 'desktop' ? 'terminator' : 'playwright';
 
     let root: any = {};

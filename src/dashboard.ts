@@ -81,6 +81,7 @@ async function buildState(context: vscode.ExtensionContext) {
         models, preferredModel: cfg.preferredCodeModelId || '', tfsOrg: cfg.tfsOrganization || '', tfsProject: cfg.tfsProject || '',
         tfsAssignedToMe: cfg.tfsAssignedToMe !== false, tfsStates: cfg.tfsStates || 'Proposed, Active', tfsTypes: cfg.tfsTypes || 'Bug, Requirement, Test Case',
         tests: ws ? listTests(ws) : [],
+        testFolders: ws ? listTests(ws).map(t => t.name) : [],
         history: getBugHistory(context, 5)
     };
 }
@@ -131,14 +132,16 @@ button.sec{background:var(--vscode-button-secondaryBackground);color:var(--vscod
 .filters{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}.filters button{font-size:11px;padding:2px 8px}
 .card{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px}
 .card.p{border-left-color:#2ea043}.card.f{border-left-color:#d1242f}.card.u{border-left-color:#888}
-.card.g{border-left-color:#d4af37;background:rgba(212,175,55,.10)}
+.card.st-new{border-left-color:#9aa0a6}.card.st-act{border-left-color:#1f9cf0}.card.st-res{border-left-color:#e3b341}.card.st-done{border-left-color:#3fb950}.card.st-rem{border-left-color:#d1242f}
+.card.linked{background:rgba(137,87,229,.10)}
 .card.hl{animation:hlpulse 1.8s ease}
-@keyframes hlpulse{0%{box-shadow:0 0 0 0 rgba(212,175,55,.0)}15%{box-shadow:0 0 0 3px rgba(212,175,55,.65)}100%{box-shadow:0 0 0 0 rgba(212,175,55,0)}}
+@keyframes hlpulse{0%{box-shadow:0 0 0 0 rgba(137,87,229,0)}15%{box-shadow:0 0 0 3px rgba(137,87,229,.65)}100%{box-shadow:0 0 0 0 rgba(137,87,229,0)}}
 .card .top{display:flex;align-items:center;gap:8px;min-width:0}
 .card .bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap;flex:none}
 .badge.p{background:rgba(46,160,67,.18);color:#3fb950}.badge.f{background:rgba(209,36,47,.18);color:#f85149}.badge.u{background:rgba(136,136,136,.18);color:#9aa0a6}
-.badge.g{background:rgba(212,175,55,.22);color:#e3b341}
+.badge.st-new{background:rgba(154,160,166,.18);color:#b9bcc2}.badge.st-act{background:rgba(31,156,240,.20);color:#3794ff}.badge.st-res{background:rgba(227,179,65,.20);color:#e3b341}.badge.st-done{background:rgba(63,185,80,.20);color:#5bbf52}.badge.st-rem{background:rgba(209,36,47,.18);color:#f85149}
+.badge.linked{background:rgba(137,87,229,.22);color:#b392f0}
 .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .time{opacity:.6;font-size:11px;margin-right:auto}
 .acts{display:flex;gap:4px;flex-wrap:wrap}.acts button{font-size:11px;padding:2px 8px}
@@ -329,7 +332,7 @@ function render(){
  syncDisabled();
 }
 window.addEventListener('message',e=>{
- if(e.data.type==='state'){st=e.data.payload;render();}
+ if(e.data.type==='state'){st=e.data.payload;render();if(lastBugs&&lastBugs.ok)renderBugs(lastBugs);}
  else if(e.data.type==='bugs'){renderBugs(e.data.payload);}
  else if(e.data.type==='discovery'){
   const p=e.data.payload;const el=document.getElementById('w_disc');
@@ -337,18 +340,31 @@ window.addEventListener('message',e=>{
   else{el.textContent='ℹ️ '+(p.message||'Nenašiel sa žiadny TFS MCP.');}
  }
 });
+function bugStateClass(state){
+ const s=(state||'').toLowerCase();
+ if(/closed|done|complete/.test(s))return 'st-done';
+ if(/resolved|ready|fixed/.test(s))return 'st-res';
+ if(/active|committed|progress|doing|investigat/.test(s))return 'st-act';
+ if(/removed|rejected/.test(s))return 'st-rem';
+ return 'st-new';
+}
+let lastBugs=null;
 function renderBugs(p){
+ lastBugs=p;
  const b=document.getElementById('bugs');
  if(!p.ok){b.innerHTML='<p style="color:#f85149">'+(p.error||'Chyba')+'</p>';return;}
  if(!p.bugs||!p.bugs.length){b.innerHTML='<p style="opacity:.6">Žiadne work items.</p>';return;}
  b.innerHTML='';
+ const folders=st.testFolders||[];
  p.bugs.forEach(x=>{
-  const has=x.hasTest;const c=has?'g':'u';
-  const d=document.createElement('div');d.className='card '+c;
+  const has=folders.includes('bug_'+x.id)||x.hasTest;
+  const sc=bugStateClass(x.state);
+  const d=document.createElement('div');d.className='card '+sc+(has?' linked':'');
   const act=has?'<button data-a="goTest">K testu →</button>':'<button data-a="bugTest">Vytvoriť test</button>';
-  d.innerHTML='<div class="top"><span class="badge '+c+'">#'+x.id+' '+x.type+'</span><span class="name" title="'+x.title.replace(/"/g,'&quot;')+'">'+x.title+'</span></div>'+
-   '<div class="bot"><span class="time">'+x.state+(has?' · test vytvorený':'')+'</span><span class="acts">'+act+'</span></div>';
-  d.querySelector('button').onclick=()=> has? highlightTest('bug_'+x.id) : send('bugTest',{id:x.id});
+  const linkedBadge=has?'<span class="badge linked" title="Existuje test">✓ test</span>':'';
+  d.innerHTML='<div class="top"><span class="badge '+sc+'">#'+x.id+' '+x.type+'</span><span class="name" title="'+x.title.replace(/"/g,'&quot;')+'">'+x.title+'</span>'+linkedBadge+'</div>'+
+   '<div class="bot"><span class="time">'+x.state+'</span><span class="acts">'+act+'</span></div>';
+  d.querySelector('.acts button').onclick=()=> has? highlightTest('bug_'+x.id) : send('bugTest',{id:x.id});
   b.appendChild(d);});
 }
 function highlightTest(name){
@@ -371,7 +387,7 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
         // Auto-refresh dashboardu keď agent mode dopíše result.md (test dokončený).
         const wsRoot = vscode.workspace.workspaceFolders?.[0];
         if (wsRoot) {
-            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/result.md'));
+            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/*.md'));
             const onChange = () => { void post(); };
             watcher.onDidCreate(onChange);
             watcher.onDidChange(onChange);

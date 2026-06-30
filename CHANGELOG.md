@@ -2,6 +2,19 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.4.0]
+
+### Added ✨
+- **TFS komentáre v scenári** — pri tvorbe testu z bugu sa načítajú aj komentáre/diskusia work itemu (podstatné info sa často presunie tam).
+
+### Changed 🔄
+- **Farby TFS bugov podľa stavu** — zhodujú sa s Azure DevOps (New/Proposed sivá, Active modrá, Resolved zlatá, Closed zelená, Removed červená), aby nemýlili.
+- **Prilinkované bugy** (už majú test) sa označujú **fialovým** akcentom + odznakom „✓ test" (nie zlatá/zelená, ktoré v TFS znamenajú Resolved/Closed).
+- **Dashboard sa obnoví** aj po vytvorení testu z TFS (watcher sleduje všetky `.md` v teštoch, bug sa ihneď označí ako prilinkovaný).
+
+### Fixed 🐛
+- **`.gitignore`** — celý obsah `autotest/` (výsledky, scenáre, reporty, screenshoty) je teraz ignorovaný; už neznečísťuje git repozitár projektu.
+
 ## [0.3.3]
 
 ### Changed 🔄

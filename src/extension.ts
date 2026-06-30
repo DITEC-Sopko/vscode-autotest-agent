@@ -84,7 +84,14 @@ export function activate(context: vscode.ExtensionContext) {
             if (tfs) {
                 try {
                     const d = await tfs.getBugDetails(parseInt(bugId));
-                    if (d) { description = `${d.title}\n\n${d.description}`; }
+                    if (d) {
+                        let txt = `${d.title}\n\n${d.description}`;
+                        if (d.comments && d.comments.length) {
+                            txt += `\n\n## Komentáre (TFS diskusia – najnovšie info môže meniť pôvodný popis):\n`
+                                + d.comments.map((c, i) => `${i + 1}. ${c}`).join('\n');
+                        }
+                        description = txt;
+                    }
                 } catch { /* ignore */ }
             }
             if (!description) { description = await getBugDescriptionWithClipboardOption(); }

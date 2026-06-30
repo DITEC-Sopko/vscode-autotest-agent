@@ -17,7 +17,7 @@ async function generateScenario(
 Aplikácia: ${config.appUrl} (${config.appType}).${projectOverview ? `\nKontext projektu:\n${projectOverview}` : ''}
 ${config.loginRequired ? 'Aplikácia vyžaduje prihlásenie — začni krokom prihlásenia.' : ''}
 
-Úloha/bug:
+Úloha/bug (môže obsahovať sekciu Komentáre – zohľadni najmä najnovšie informácie z komentárov, lebo podstatné zmeny sa často presunú do diskusie):
 ${bugDescription}
 
 Formát:

@@ -38,12 +38,11 @@ function nextNumber(workspacePath: string, re: RegExp): number {
     return nums.length === 0 ? 1 : Math.max(...nums) + 1;
 }
 
-/** Zaistí .gitignore aby sa neukladali dočasné MCP výstupy. */
+/** Zaístí, aby sa generované testy a výstupy neukladali do gitu (celý autotest/ okrem .gitignore). */
 export function ensureGitignore(workspacePath: string): void {
-    const gi = path.join(workspacePath, 'autotest', '.gitignore');
-    const lines = ['_mcp_output/', 'agent_prompt.md'];
-    if (!fs.existsSync(path.dirname(gi))) { return; }
-    let cur = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf-8') : '';
-    for (const l of lines) { if (!cur.includes(l)) { cur += (cur.endsWith('\n') || cur === '' ? '' : '\n') + l + '\n'; } }
-    fs.writeFileSync(gi, cur, 'utf-8');
+    const dir = path.join(workspacePath, 'autotest');
+    if (!fs.existsSync(dir)) { return; }
+    const gi = path.join(dir, '.gitignore');
+    const content = '# Autotest Agent – generované testy a výstupy (nepatria do gitu)\n*\n!.gitignore\n';
+    try { fs.writeFileSync(gi, content, 'utf-8'); } catch { /* ignore */ }
 }

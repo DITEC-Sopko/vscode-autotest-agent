@@ -61,7 +61,7 @@ export class TfsClient {
     /**
      * Načíta detaily bugu z TFS
      */
-    async getBugDetails(bugId: number): Promise<{ title: string; description: string } | null> {
+    async getBugDetails(bugId: number): Promise<{ title: string; description: string; comments: string[] } | null> {
         if (!this.connection) {
             throw new Error('Nie si pripojený k TFS');
         }
@@ -82,13 +82,30 @@ export class TfsClient {
             // Odstráň HTML tagy z popisu ak existujú
             const cleanDescription = this.stripHtml(description);
 
+            // Načítaj komentáre/diskusiu – podstatné info sa často presunie tam.
+            const comments = await this.getWorkItemComments(witApi, bugId);
+
             return {
                 title,
-                description: cleanDescription
+                description: cleanDescription,
+                comments
             };
         } catch (error: any) {
             console.error('Error getting bug details:', error);
             throw new Error(`Nepodarilo sa načítať bug #${bugId}: ${error.message}`);
+        }
+    }
+
+    /** Načíta komentáre work itemu (best-effort, naprieč rôznymi verziami API). */
+    private async getWorkItemComments(witApi: any, bugId: number): Promise<string[]> {
+        try {
+            const res: any = await witApi.getComments(this.projectName, bugId);
+            const arr: any[] = res?.comments || (Array.isArray(res) ? res : []);
+            return arr
+                .map(c => this.stripHtml(c?.text || ''))
+                .filter((t: string) => t.length > 0);
+        } catch {
+            return [];
         }
     }
 

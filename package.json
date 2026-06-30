@@ -2,7 +2,7 @@
   "name": "autotest-agent",
   "displayName": "Autotest Agent",
   "description": "AI agent, ktorý overí bug či scenár priamym ovládaním aplikácie cez MCP (Playwright/Terminator) v GitHub Copilot agent mode.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "icon": "icon.png",
   "publisher": "ditec-sopko",
@@ -74,6 +74,32 @@
         ]
       }
     ],
+    "languageModelTools": [
+      {
+        "name": "autotest_readReport",
+        "displayName": "Čítať report (Autotest)",
+        "modelDescription": "Extrahuje čistý text z report/dokument súboru na lokálnom disku (PDF, DOCX, XLSX, XML, CSV, TXT). Použi tento nástroj na prečítanie obsahu reportu, ktorý aplikácia vygenerovala, namiesto otvárania súboru v prehliadači (file: URL je blokované). Vstup je absolútna cesta k súboru, výstup je extrahovaný text.",
+        "toolReferenceName": "readReport",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(file-text)",
+        "tags": [
+          "autotest",
+          "report"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolútna cesta k report súboru (PDF/DOCX/XLSX/XML/CSV/TXT)."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
     "commands": [
       {
         "command": "autotest.init",
@@ -120,6 +146,9 @@
   "dependencies": {
     "azure-devops-node-api": "^12.5.0",
     "fs": "^0.0.1-security",
-    "path": "^0.12.7"
+    "mammoth": "^1.12.0",
+    "path": "^0.12.7",
+    "unpdf": "^1.6.2",
+    "xlsx": "^0.18.5"
   }
 }

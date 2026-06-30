@@ -4,7 +4,7 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 
 > Cieľ: ušetriť čas testerom aj programátorom — namiesto písania a opravovania krehkých testov necháš agenta scenár reálne odklikať a vizuálne overiť.
 
-[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.4.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.4.0.vsix)
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.5.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.5.0.vsix)
 
 ---
 
@@ -33,9 +33,9 @@ MCP servery sa sťahujú automaticky cez `npx` pri prvom spustení testu.
 
 Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`:
 
-[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.4.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.4.0.vsix)
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.5.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.5.0.vsix)
 
-1. Stiahni súbor `autotest-agent-0.4.0.vsix`.
+1. Stiahni súbor `autotest-agent-0.5.0.vsix`.
 2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).
 3. Klikni na **`...`** (vpravo hore) → **Install from VSIX…**.
 4. Vyber stiahnutý `.vsix` a potvrď.
@@ -43,7 +43,7 @@ Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`
 Alebo cez príkazový riadok:
 
 ```bash
-code --install-extension autotest-agent-0.4.0.vsix
+code --install-extension autotest-agent-0.5.0.vsix
 ```
 
 ---

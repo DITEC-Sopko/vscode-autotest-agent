@@ -8,6 +8,7 @@ import { runTest, rerunTest } from './runner';
 import { runInit, openSettings, setupTfs } from './setup';
 import { pickModel } from './util';
 import { DashboardProvider } from './dashboard';
+import { registerReportTool } from './report';
 import { getBugDescriptionWithClipboardOption, getBugHistory, formatBugHistory } from './bug-input';
 
 let tfsClient: TfsClient | null = null;
@@ -26,6 +27,7 @@ async function ensureTfs(context: vscode.ExtensionContext): Promise<TfsClient | 
 
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
+        registerReportTool(),
         vscode.window.registerWebviewViewProvider(DashboardProvider.viewType, new DashboardProvider(context)),
         vscode.commands.registerCommand('autotest.init', () => runInit(context)),
         vscode.commands.registerCommand('autotest.settings', () => openSettings(context)),

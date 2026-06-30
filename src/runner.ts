@@ -58,6 +58,10 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 2. Vykonaj kroky scenára, po každom kroku screenshot do \`steps/\`.
 3. Skontroluj očakávaný výsledok.
 
+## Reporty a dokumenty (PDF/DOCX/XLSX/XML/CSV)
+- Ak appka vygeneruje report súbor a potrebuješ overiť jeho obsah, **NEOTVÁRAJ ho v prehliadači** (\`file:\` URL je blokované).
+- Použi nástroj **\`autotest_readReport\`** (#readReport) s absolútnou cestou k súboru — vráti extrahovaný text, ktorý porovnáš s očakávaným výsledkom.
+
 ## Výstup (do \`autotest/${folder}/\`)
 - \`result.md\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie.
 - \`transcript.md\` — zoznam MCP akcií.

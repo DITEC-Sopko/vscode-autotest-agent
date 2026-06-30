@@ -11,6 +11,7 @@
 		],
 		"sourceMap": true,
 		"rootDir": "src",
+		"skipLibCheck": true,   /* preskoč typovú kontrolu .d.ts knižníc (napr. unpdf vyžaduje DOM typy) */
 		"strict": true,   /* enable all strict type-checking options */
 		/* Additional Checks */
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */

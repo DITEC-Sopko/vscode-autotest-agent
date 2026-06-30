@@ -2,6 +2,12 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.5.0]
+
+### Added ✨
+- **Čítanie reportov (PDF/DOCX/XLSX/XML/CSV/TXT)** — nový Language Model nástroj `#readReport` (`autotest_readReport`), ktorým agent prečíta obsah vygenerovaného reportu priamo z disku namiesto otvárania v prehliadači (`file:` URL je blokované). PDF cez `unpdf` (bez natívnych závislostí), DOCX cez `mammoth`, XLSX cez `xlsx`.
+- Agent prompt teraz inštruuje, aby na overenie obsahu reportov používal tento nástroj.
+
 ## [0.4.0]
 
 ### Added ✨

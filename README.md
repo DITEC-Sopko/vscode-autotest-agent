@@ -4,11 +4,13 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 
 > Cieľ: ušetriť čas testerom aj programátorom — namiesto písania a opravovania krehkých testov necháš agenta scenár reálne odklikať a vizuálne overiť.
 
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.3.1-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.3.1.vsix)
+
 ---
 
 ## Hlavné vlastnosti
 
-- 🧭 **Dashboard so sprievodcom** — inicializácia projektu v 3 krokoch (rola → aplikácia → prihlásenie → TFS), prehľad testov, reporty.
+- 🧭 **Dashboard so sprievodcom** — inicializácia projektu v krokoch (aplikácia → prihlásenie → TFS), prehľad testov, reporty.
 - 🌐 **Web aj 🖥️ desktop** — jednotný tok cez MCP servery (Playwright / Terminator).
 - 🤖 **Vykonanie v Copilot agent mode** — agent klika, píše a screenshotuje sám; pýta sa len keď chýba prihlásenie alebo údaj zo scenára.
 - 🔗 **TFS / Azure DevOps** — načítanie pridelených work items a vytvorenie testu priamo z bugu.
@@ -31,7 +33,7 @@ MCP servery sa sťahujú automaticky cez `npx` pri prvom spustení testu.
 
 Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`:
 
-[⬇️ **Stiahnuť najnovší `.vsix`**](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.3.1.vsix)
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.3.1-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.3.1.vsix)
 
 1. Stiahni súbor `autotest-agent-0.3.1.vsix`.
 2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).

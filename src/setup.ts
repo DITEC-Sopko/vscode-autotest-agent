@@ -2,17 +2,13 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-    saveUserRole, saveEnvironmentConfig, saveTfsConfig, saveTfsPat,
+    saveEnvironmentConfig, saveTfsConfig, saveTfsPat,
     saveLoginConfig, saveLoginPassword, saveDebugConfig, resetConfiguration
 } from './config';
 import { pickModel } from './util';
 
 /** Init wizard cez QuickPick. */
 export async function runInit(context: vscode.ExtensionContext): Promise<void> {
-    const role = await vscode.window.showQuickPick(['developer', 'tester'], { placeHolder: 'Rola', ignoreFocusOut: true });
-    if (!role) { return; }
-    await saveUserRole(context, role as 'developer' | 'tester');
-
     const appType = await vscode.window.showQuickPick(['web', 'desktop'], { placeHolder: 'Typ aplikácie', ignoreFocusOut: true });
     if (!appType) { return; }
     const url = await vscode.window.showInputBox({ prompt: appType === 'web' ? 'URL aplikácie' : 'Cesta k aplikácii (.exe / .appref-ms)', ignoreFocusOut: true });

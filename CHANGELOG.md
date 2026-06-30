@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.3.1]
+
+### Removed 🗑️
+- **Výber roly (developer/tester)** z dashboardu, sprievodcu aj `@autotest init` — pole nemalo žiadny funkčný efekt, len mýlilo. Správanie je pre všetkých rovnaké.
+
 ## [0.3.0]
 
 ### Changed 🔄

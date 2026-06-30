@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { loadConfiguration, saveUserRole, saveEnvironmentConfig, saveLoginConfig, saveLoginPassword, saveDebugConfig, savePreferredCodeModel, saveTfsConfig, saveTfsPat } from './config';
+import { loadConfiguration, saveEnvironmentConfig, saveLoginConfig, saveLoginPassword, saveDebugConfig, savePreferredCodeModel, saveTfsConfig, saveTfsPat } from './config';
 import { getBugHistory } from './bug-input';
 
 type Status = 'passed' | 'failed' | 'unknown';
@@ -76,7 +76,7 @@ async function buildState(context: vscode.ExtensionContext) {
     return {
         hasWorkspace: !!ws,
         initialized: !!(ws && fs.existsSync(path.join(ws, 'autotest'))),
-        role: cfg.userRole, appType: cfg.appType, appUrl: cfg.appUrl, tfsEnabled: cfg.tfsEnabled,
+        appType: cfg.appType, appUrl: cfg.appUrl, tfsEnabled: cfg.tfsEnabled,
         loginRequired: !!cfg.loginRequired, username: cfg.username || '', headless: cfg.headlessMode !== false,
         models, preferredModel: cfg.preferredCodeModelId || '', tfsOrg: cfg.tfsOrganization || '', tfsProject: cfg.tfsProject || '',
         tfsAssignedToMe: cfg.tfsAssignedToMe !== false, tfsStates: cfg.tfsStates || 'Proposed, Active', tfsTypes: cfg.tfsTypes || 'Bug, Requirement, Test Case',
@@ -166,7 +166,6 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 <div class="toolbar"><button id="add">+ Test</button><button class="sec" id="set">⚙ Nastavenia</button><button class="sec" id="ref">⟳</button></div>
 <div class="meta" id="meta"></div>
 <div class="panel" id="settings">
- <div class="row"><label>Rola</label><select id="s_role"><option value="developer">developer</option><option value="tester">tester</option></select></div>
  <div class="row"><label>Typ aplikácie</label><select id="s_type"><option value="web">web</option><option value="desktop">desktop</option></select></div>
  <div class="row"><label>URL / cesta</label><input id="s_url"/></div>
  <div class="row chk"><input type="checkbox" id="s_login"/><label>Vyžaduje prihlásenie</label></div>
@@ -215,7 +214,6 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
   <div class="wzbar"><span class="wzdot" data-s="1">1</span><span class="wzdot" data-s="2">2</span><span class="wzdot" data-s="3">3</span></div>
   <div class="wzttl" id="wztitle"></div>
   <div class="wzstep" data-step="1">
-   <div class="row"><label>Rola</label><select id="w_role"><option value="developer">developer</option><option value="tester">tester</option></select></div>
    <div class="row"><label>Typ projektu</label><select id="w_type"><option value="web">web</option><option value="desktop">desktop</option></select></div>
    <div class="row"><label id="w_urllbl">URL aplikácie</label><input id="w_url" placeholder="https://…"/></div>
   </div>
@@ -266,7 +264,7 @@ document.getElementById('tfshdr').onclick=()=>{
  w.style.display=open?'block':'none';document.getElementById('tfschev').textContent=open?'▾':'▸';
  if(open&&!bugsLoaded)loadBugs();
 };
-document.getElementById('s_save').onclick=()=>send('saveSettings',{role:s_role.value,appType:s_type.value,appUrl:s_url.value,login:s_login.checked,username:s_user.value,password:s_pwd.value,headless:s_head.checked,model:s_model.value,tfs:s_tfs.checked,tfsOrg:s_tfsorg.value,tfsProject:s_tfsproj.value,tfsPat:s_tfspat.value,tfsMe:s_tfsme.checked,tfsStates:s_tfsstates.value,tfsTypes:s_tfstypes.value});
+document.getElementById('s_save').onclick=()=>send('saveSettings',{appType:s_type.value,appUrl:s_url.value,login:s_login.checked,username:s_user.value,password:s_pwd.value,headless:s_head.checked,model:s_model.value,tfs:s_tfs.checked,tfsOrg:s_tfsorg.value,tfsProject:s_tfsproj.value,tfsPat:s_tfspat.value,tfsMe:s_tfsme.checked,tfsStates:s_tfsstates.value,tfsTypes:s_tfstypes.value});
 document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{flt=b.dataset.f;render()});
 function setDim(id,on){const el=document.getElementById(id);if(!el)return;el.classList.toggle('dim',!on);el.querySelectorAll('input,select').forEach(i=>i.disabled=!on);}
 function syncDisabled(){setDim('loginfields',document.getElementById('s_login').checked);setDim('tfsfields',document.getElementById('s_tfs').checked);}
@@ -287,7 +285,6 @@ function wzShow(){
 function wzUrlLbl(t){document.getElementById('w_urllbl').textContent=(t==='desktop')?'Cesta k aplikácii (.exe / .appref-ms)':'URL aplikácie';}
 document.getElementById('startwiz').onclick=()=>{
  document.getElementById('notinit').style.display='none';document.getElementById('wizard').style.display='block';wzStep=1;
- document.getElementById('w_role').value=(st.role&&st.role!=='unknown')?st.role:'developer';
  document.getElementById('w_type').value=st.appType||'web';document.getElementById('w_url').value=st.appUrl||'';
  wzUrlLbl(st.appType||'web');wzShow();
 };
@@ -303,7 +300,7 @@ document.getElementById('w_patinfo').onclick=()=>document.getElementById('w_path
 document.getElementById('s_patdocs').onclick=()=>send('openPatDocs');
 document.getElementById('w_patdocs').onclick=()=>send('openPatDocs');
 document.getElementById('w_finish').onclick=()=>send('initProject',{
- role:document.getElementById('w_role').value,appType:document.getElementById('w_type').value,appUrl:document.getElementById('w_url').value,
+ appType:document.getElementById('w_type').value,appUrl:document.getElementById('w_url').value,
  login:document.getElementById('w_login').checked,username:document.getElementById('w_user').value,password:document.getElementById('w_pwd').value,
  tfs:document.getElementById('w_tfs').checked,tfsOrg:document.getElementById('w_tfsorg').value,tfsProject:document.getElementById('w_tfsproj').value,tfsPat:document.getElementById('w_tfspat').value
 });
@@ -313,8 +310,8 @@ function render(){
  document.getElementById('initview').style.display=init?'none':'block';
  if(!init){return;}
  const m=document.getElementById('meta');
- m.textContent=st.initialized?('Rola: '+st.role+' · '+st.appType+' · '+(st.appUrl||'')+(st.tfsEnabled?(' · TFS: '+(st.tfsProject||'zapnuté')):' · TFS: vypnuté')):'Projekt nie je inicializovaný.';
- s_role.value=st.role==='unknown'?'developer':st.role;s_type.value=st.appType||'web';s_url.value=st.appUrl||'';
+ m.textContent=st.initialized?(st.appType+' · '+(st.appUrl||'')+(st.tfsEnabled?(' · TFS: '+(st.tfsProject||'zapnuté')):' · TFS: vypnuté')):'Projekt nie je inicializovaný.';
+ s_type.value=st.appType||'web';s_url.value=st.appUrl||'';
  s_login.checked=!!st.loginRequired;s_user.value=st.username||'';s_head.checked=st.headless!==false;
  s_tfs.checked=!!st.tfsEnabled;s_tfsorg.value=st.tfsOrg||'';s_tfsproj.value=st.tfsProject||'';
  s_tfsme.checked=st.tfsAssignedToMe!==false;s_tfsstates.value=st.tfsStates||'';s_tfstypes.value=st.tfsTypes||'';
@@ -392,7 +389,6 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                     return;
                 }
                 case 'initProject': {
-                    await saveUserRole(this.ctx, m.role);
                     await saveEnvironmentConfig(this.ctx, { url: m.appUrl, appType: m.appType, environment: 'local' });
                     await saveLoginConfig(this.ctx, { required: !!m.login, username: m.username || undefined });
                     if (m.password) { await saveLoginPassword(this.ctx, m.password); }
@@ -413,7 +409,6 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                 }
                 case 'bugTest': sendPromptToChat(`bug #${m.id}`); return;
                 case 'saveSettings':
-                    await saveUserRole(this.ctx, m.role);
                     await saveEnvironmentConfig(this.ctx, { url: m.appUrl, appType: m.appType, environment: 'local' });
                     await saveLoginConfig(this.ctx, { required: !!m.login, username: m.username || undefined });
                     if (m.password) { await saveLoginPassword(this.ctx, m.password); }

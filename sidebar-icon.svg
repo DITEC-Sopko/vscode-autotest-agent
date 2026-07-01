@@ -1,34 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <!-- HLAVA ROBOTA (Vľavo) -->
-    <rect x="2" y="8" width="9" height="9" rx="2" />
+    <!-- BANKA (Plná veľkosť, ale s výrezom pre robota vľavo dole) -->
+    <!-- Horný okraj a hrdlo -->
+    <path d="M9 2h6" />
+    <path d="M10 2v5" />
+    <path d="M14 2v5l5 11a2 2 0 0 1-2 2h-8" /> <!-- Pravá strana a spodok po robota -->
+    <path d="M14 7L11 14" opacity="0.3" stroke-dasharray="2 2" /> <!-- Vnútorná línia krku -->
+
+    <!-- ROBOT (Dole vľavo, jednoznačne viditeľný) -->
+    <!-- Hlava robota s anténkou -->
+    <rect x="2" y="14" width="8" height="6" rx="1.5" /> 
     
     <!-- Anténka -->
-    <path d="M6.5 8V4.5" />
-    <circle cx="6.5" cy="3.5" r="1.2" fill="currentColor" stroke="none" />
+    <path d="M4 14v-2" />
+    <circle cx="4" cy="11" r="0.6" fill="currentColor" stroke="none" />
     
-    <!-- Oči robota (Hrubšie body) -->
-    <path d="M4.5 11.5v.01" stroke-width="2" />
-    <path d="M8.5 11.5v.01" stroke-width="2" />
+    <!-- Oči robota (Svietiace body) -->
+    <circle cx="4.5" cy="17" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="7.5" cy="17" r="0.7" fill="currentColor" stroke="none" />
     
-    <!-- Ústa robota -->
-    <path d="M5.5 14h2" stroke-width="1" />
-
-    <!-- ROBOTICKÁ RUKA (Drží skúmavku) -->
-    <path d="M11 13h3" />
-    <path d="M14 12v2" /> <!-- Klepeto -->
-
-    <!-- SKÚMAVKA (Vpravo) -->
-    <!-- Okraj (Hrdlo) skúmavky -->
-    <path d="M13 5h6" />
-    <!-- Sklenené telo (Zaguľatené dno) -->
-    <path d="M14 5v12a2 2 0 0 0 4 0V5" />
+    <!-- Spojnica (akoby ruka alebo kábel k banke) -->
+    <path d="M10 17h2" opacity="0.5" />
     
-    <!-- Hladina testovacej kvapaliny -->
-    <path d="M14 11h4" opacity="0.6" />
-    <!-- Bublinky v kvapaline -->
-    <path d="M16 14.5v.01" stroke-width="2" />
-    <path d="M15 16.5v.01" stroke-width="1.5" />
-
-    <!-- AI KÚZLO (Hviezdička vpravo hore) -->
-    <path d="M19 3.5 Q19 5.5 17 5.5 Q19 5.5 19 7.5 Q19 5.5 21 5.5 Q19 5.5 19 3.5 Z" fill="currentColor" stroke="none" />
+    <!-- Tekutina na dne (pre lepšiu vizuálnu váhu) -->
+    <path d="M11 20h6" opacity="0.4" />
 </svg>

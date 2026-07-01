@@ -2,6 +2,23 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.6.0]
+
+### Added ✨
+- **Zmazať test** — tlačidlo 🗑 na každej test karte (s potvrdzím dialógom), odstráni celý priečinok testu.
+- **Regenerovať scenár z TFS** — pri zmene bugu tlačidlo „↻ Regen" znova vygeneruje `test_scenario.md` z **aktuálneho** stavu bugu (nový popis + komentáre); pôvodný sa zazálohuje do `test_scenario.bak.md`. Len pre TFS testy (`bug_*`).
+- **Upozornenie na neaktuálny scenár** — ak sa bug zmenil po vytvorení scenára, na bug karte sa zobrazí „⚠ Test scenár nemusí byť aktuálny — došlo k zmene v bug_xxxx" + tlačidlo Regenerovať (podľa `meta.json` s dátumom zmeny bugu).
+
+### Changed 🔄
+- **TFS karty** — typ work itemu je teraz **ľavý** pásik, stav **horný** pásik.
+- **Indikátor „beží"** svieti len pri reálnom spustení v agent mode; skrátené a rozdelené časové okná (štart 90 s, aktivita 45 s) so spoľahlivým zhasnutím po dokončení/zrušení.
+- **Jednotný štýl** tlačidla „+ Test" (tyrkysové, bez gradientu).
+- **Automatický refresh** dashboardu po regenerácii aj zmazaní testu.
+- Aktualizovaná ikona (`icon.png` pregenerovaný z upraveného `icon.svg`).
+
+### Removed 🗑️
+- Tlačidlo „✕ Zrušiť" indikátora behu — nahradené automatickým časovým vypnutím.
+
 ## [0.5.0]
 
 ### Added ✨

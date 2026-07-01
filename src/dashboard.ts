@@ -6,7 +6,13 @@ import { getBugHistory } from './bug-input';
 
 type Status = 'passed' | 'failed' | 'unknown';
 
-interface TestItem { name: string; status: Status; lastRunAt?: string; }
+/** Signál, že používateľ REÁLNE klikol „Spustiť v agent mode" (marker `.running` zapísaný) → dashboard sa hneď obnoví. */
+export const launchSignal = new vscode.EventEmitter<void>();
+
+/** Signál na obnovu dashboardu (napr. po regenerácii scenára) → refresh stavu aj TFS bugov, aby ⚠ neaktuálnosť zmizla. */
+export const dashboardRefreshSignal = new vscode.EventEmitter<void>();
+
+interface TestItem { name: string; status: Status; lastRunAt?: string; running?: boolean; }
 
 function readStatus(testDir: string): { status: Status; mtime?: number } {
     const rp = path.join(testDir, 'result.md');
@@ -20,15 +26,80 @@ function readStatus(testDir: string): { status: Status; mtime?: number } {
     } catch { return { status: 'unknown' }; }
 }
 
+/**
+ * Časové okná pre indikátor „beží":
+ *  - MARKER: po kliknutí „Spustiť v agent mode" drží „beží" bez ohľadu na aktivitu (pokryje štart:
+ *    načítanie toolov, spustenie browsera, login — kým padne prvý screenshot).
+ *  - ACTIVITY: po tom, čo sa začala aktivita, „beží" pokiaľ sa transcript/steps menili za posledných toto okno.
+ */
+const RUNNING_MARKER_GRACE_MS = 90_000;
+const RUNNING_ACTIVITY_WINDOW_MS = 45_000;
+
+/**
+ * Test „beží", ak platí:
+ *  (a) existuje marker `.running` (zapísaný pri reálnom spustení) novší než result.md a mladší než MARKER grace
+ *      — pokryje štart pred prvým novým screenshotom, alebo
+ *  (b) transcript.md/steps sa menili za posledné ACTIVITY okno a result.md ešte nie je novší (agent píše result.md až na konci).
+ */
+function isRunning(testDir: string): boolean {
+    const rp = path.join(testDir, 'result.md');
+    const resM = fs.existsSync(rp) ? fs.statSync(rp).mtimeMs : 0;
+    const marker = path.join(testDir, '.running');
+    if (fs.existsSync(marker)) {
+        const mM = fs.statSync(marker).mtimeMs;
+        if (resM <= mM && (Date.now() - mM) < RUNNING_MARKER_GRACE_MS) { return true; }
+    }
+    const tr = path.join(testDir, 'transcript.md');
+    if (!fs.existsSync(tr)) { return false; }
+    let last = fs.statSync(tr).mtimeMs;
+    const steps = path.join(testDir, 'steps');
+    if (fs.existsSync(steps)) {
+        try { for (const f of fs.readdirSync(steps)) { const mt = fs.statSync(path.join(steps, f)).mtimeMs; if (mt > last) { last = mt; } } } catch { /* ignore */ }
+    }
+    return (Date.now() - last) < RUNNING_ACTIVITY_WINDOW_MS && resM <= last;
+}
+
 function listTests(ws: string): TestItem[] {
     const dir = path.join(ws, 'autotest');
     if (!fs.existsSync(dir)) { return []; }
     return fs.readdirSync(dir)
         .filter(e => fs.statSync(path.join(dir, e)).isDirectory() && e !== 'data' && !e.startsWith('_') && e !== 'steps')
         .map(name => {
-            const { status, mtime } = readStatus(path.join(dir, name));
-            return { name, status, lastRunAt: mtime ? new Date(mtime).toLocaleString('sk-SK') : undefined };
+            const testDir = path.join(dir, name);
+            const { status, mtime } = readStatus(testDir);
+            return { name, status, lastRunAt: mtime ? new Date(mtime).toLocaleString('sk-SK') : undefined, running: isRunning(testDir) };
         });
+}
+
+/** Z absolútnej cesty vytiahne názov test priečinka (prvý segment za autotest/). */
+function extractFolder(fsPath: string, ws: string): string | undefined {
+    const rel = path.relative(path.join(ws, 'autotest'), fsPath);
+    const seg = rel.split(/[\\/]/)[0];
+    return seg && !seg.startsWith('..') ? seg : undefined;
+}
+
+/**
+ * Po dokončení testu: skopíruje vygenerované dokumenty z autotest/_mcp_output do steps/ testu
+ * (aby boli v reporte) a zmaže _mcp_output. Idempotentné — po zmazaní je ďalšie volanie no-op.
+ */
+function finalizeTest(ws: string, folder: string): void {
+    // Test skončil (result.md sa zapísal) → zmaž bežiaci marker.
+    try { fs.rmSync(path.join(ws, 'autotest', folder, '.running'), { force: true }); } catch { /* ignore */ }
+    const mcpOut = path.join(ws, 'autotest', '_mcp_output');
+    if (!fs.existsSync(mcpOut)) { return; }
+    const stepsDir = path.join(ws, 'autotest', folder, 'steps');
+    const keep = /\.(pdf|docx?|xlsx?|xlsm|csv|xml|txt|html?|json|png|jpe?g|webp|gif)$/i;
+    try {
+        if (!fs.existsSync(stepsDir)) { fs.mkdirSync(stepsDir, { recursive: true }); }
+        for (const f of fs.readdirSync(mcpOut)) {
+            const src = path.join(mcpOut, f);
+            try {
+                if (!fs.statSync(src).isFile() || !keep.test(f)) { continue; }
+                fs.copyFileSync(src, path.join(stepsDir, `doc_${f}`));
+            } catch { /* ignore */ }
+        }
+        fs.rmSync(mcpOut, { recursive: true, force: true });
+    } catch { /* ignore */ }
 }
 
 function escapeHtml(v: string): string {
@@ -100,52 +171,82 @@ export function showReportPanel(ws: string, folder: string): void {
         reportPanel = vscode.window.createWebviewPanel('autotest.report', `Report: ${folder}`, vscode.ViewColumn.Active,
             { enableScripts: true, localResourceRoots: [vscode.Uri.file(path.join(ws, 'autotest'))], retainContextWhenHidden: true });
         reportPanel.onDidDispose(() => { reportPanel = undefined; });
+        reportPanel.webview.onDidReceiveMessage((msg: any) => {
+            if (msg?.type === 'openDoc' && typeof msg.path === 'string') {
+                const abs = path.resolve(msg.path);
+                if (abs.startsWith(path.join(ws, 'autotest'))) { vscode.commands.executeCommand('vscode.open', vscode.Uri.file(abs)); }
+            }
+        });
     }
     reportPanel.title = `Report: ${folder}`;
     reportPanel.reveal();
     const stepsDir = path.join(testDir, 'steps');
     const imgs: { uri: string; cap: string }[] = [];
+    const docs: { name: string; fsPath: string }[] = [];
+    const docExt = /\.(pdf|docx?|xlsx?|xlsm|csv|xml|txt|html?|json)$/i;
     if (fs.existsSync(stepsDir)) {
-        for (const f of fs.readdirSync(stepsDir).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))) {
+        const files = fs.readdirSync(stepsDir).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        for (const f of files.filter(f => /\.(png|jpe?g|webp)$/i.test(f))) {
             imgs.push({ uri: reportPanel.webview.asWebviewUri(vscode.Uri.file(path.join(stepsDir, f))).toString(), cap: f.replace(/\.\w+$/, '').replace(/[_-]/g, ' ') });
+        }
+        for (const f of files.filter(f => docExt.test(f))) {
+            docs.push({ name: f.replace(/^doc_/, ''), fsPath: path.join(stepsDir, f) });
         }
     }
     const color = status === 'passed' ? '#2ea043' : status === 'failed' ? '#d1242f' : '#888';
     const badge = status === 'passed' ? '✅ PASSED' : status === 'failed' ? '❌ FAILED' : '❔ N/A';
     const steps = imgs.length ? imgs.map((s, i) => `<div class="step"><div class="h">Krok ${i + 1}: ${escapeHtml(s.cap)}</div><img src="${s.uri}"/></div>`).join('') : '<p class="m">Žiadne screenshoty.</p>';
+    const docsHtml = docs.length ? `<h2>Dokumenty</h2><div class="docs">${docs.map(d => `<button class="doc" data-p="${escapeHtml(d.fsPath)}">📄 ${escapeHtml(d.name)}</button>`).join('')}</div>` : '';
     reportPanel.webview.html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 body{font-family:var(--vscode-font-family);padding:16px;color:var(--vscode-foreground)}
 .b{display:inline-block;padding:4px 14px;border-radius:14px;color:#fff;font-weight:600;background:${color}}
 .s{background:var(--vscode-textBlockQuote-background);border-left:3px solid ${color};padding:10px 14px;border-radius:4px;white-space:pre-wrap;font-size:13px}
 .step{margin:14px 0;border:1px solid var(--vscode-panel-border);border-radius:6px;overflow:hidden}.h{padding:8px 12px;background:var(--vscode-editorWidget-background);font-weight:600}.step img{display:block;width:100%}.m{opacity:.6}
+.docs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.doc{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:13px}
 </style></head><body><h1>${escapeHtml(folder)} <span class="b">${badge}</span></h1>
-<div class="s">${escapeHtml(result || 'Report bez obsahu.')}</div><h2>Kroky</h2>${steps}</body></html>`;
+<div class="s">${escapeHtml(result || 'Report bez obsahu.')}</div>${docsHtml}<h2>Kroky</h2>${steps}
+<script>const vs=acquireVsCodeApi();document.querySelectorAll('.doc').forEach(b=>b.onclick=()=>vs.postMessage({type:'openDoc',path:b.dataset.p}));</script>
+</body></html>`;
 }
 
 function html(): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+:root{--brand-teal:#009ca6;--brand-teal-2:#33b7bf;--brand-green:#8bc53f;--brand-grad:linear-gradient(135deg,#009ca6,#8bc53f)}
 body{font-family:var(--vscode-font-family);font-size:13px;color:var(--vscode-foreground);padding:8px;min-width:240px;box-sizing:border-box}
 .toolbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:none;padding:5px 10px;border-radius:4px;cursor:pointer}
 button.sec{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}
 .meta{opacity:.8;margin-bottom:10px;line-height:1.6}
 .filters{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}.filters button{font-size:11px;padding:2px 8px}
-.card{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px}
+.card{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--vscode-panel-border);border-left-width:4px;border-radius:6px;margin-bottom:6px;position:relative;overflow:hidden}
 .card.p{border-left-color:#2ea043}.card.f{border-left-color:#d1242f}.card.u{border-left-color:#888}
 .card.st-new{border-left-color:#9aa0a6}.card.st-act{border-left-color:#1f9cf0}.card.st-res{border-left-color:#e3b341}.card.st-done{border-left-color:#3fb950}.card.st-rem{border-left-color:#d1242f}
-.card.linked{background:rgba(137,87,229,.10)}
+.card.linked{background:rgba(0,156,166,.10)}
 .card.hl{animation:hlpulse 1.8s ease}
-@keyframes hlpulse{0%{box-shadow:0 0 0 0 rgba(137,87,229,0)}15%{box-shadow:0 0 0 3px rgba(137,87,229,.65)}100%{box-shadow:0 0 0 0 rgba(137,87,229,0)}}
+@keyframes hlpulse{0%{box-shadow:0 0 0 0 rgba(0,156,166,0)}15%{box-shadow:0 0 0 3px rgba(0,156,166,.65)}100%{box-shadow:0 0 0 0 rgba(0,156,166,0)}}
+.card.run{border-left-color:var(--brand-green);animation:runglow 1.7s ease-in-out infinite}
+@keyframes runglow{0%,100%{box-shadow:0 0 0 0 rgba(139,197,63,0)}50%{box-shadow:0 0 0 3px rgba(139,197,63,.5)}}
+.card.run::before{content:'';position:absolute;left:0;top:0;height:2px;width:40%;background:linear-gradient(90deg,transparent,var(--brand-green),transparent);animation:runsh 1.3s linear infinite}
+@keyframes runsh{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+.card.gen::after,.card.appear::after{content:'';position:absolute;left:0;top:0;height:3px;width:45%;background:linear-gradient(90deg,transparent,var(--brand-green),transparent);box-shadow:0 0 8px var(--brand-green);animation:gensweep 1.2s ease-out 1}
+@keyframes gensweep{0%{transform:translateX(-120%);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateX(320%);opacity:0}}
+.card.appear{animation:cardin .5s ease}
+@keyframes cardin{0%{opacity:0;transform:translateY(-8px) scale(.98)}100%{opacity:1;transform:none}}
+.runchip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(139,197,63,.18);color:var(--brand-green);flex:none}
+.runchip .dot{width:7px;height:7px;border-radius:50%;background:var(--brand-green);animation:runblink 1s ease-in-out infinite}
+@keyframes runblink{0%,100%{opacity:.3}50%{opacity:1}}
 .card .top{display:flex;align-items:center;gap:8px;min-width:0}
 .card .bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap;flex:none}
 .badge.p{background:rgba(46,160,67,.18);color:#3fb950}.badge.f{background:rgba(209,36,47,.18);color:#f85149}.badge.u{background:rgba(136,136,136,.18);color:#9aa0a6}
 .badge.st-new{background:rgba(154,160,166,.18);color:#b9bcc2}.badge.st-act{background:rgba(31,156,240,.20);color:#3794ff}.badge.st-res{background:rgba(227,179,65,.20);color:#e3b341}.badge.st-done{background:rgba(63,185,80,.20);color:#5bbf52}.badge.st-rem{background:rgba(209,36,47,.18);color:#f85149}
-.badge.linked{background:rgba(137,87,229,.22);color:#b392f0}
+.badge.linked{background:rgba(0,156,166,.20);color:var(--brand-teal-2)}
 .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .time{opacity:.6;font-size:11px;margin-right:auto}
-.acts{display:flex;gap:4px;flex-wrap:wrap}.acts button{font-size:11px;padding:2px 8px}
-#add{background:#2ea043;color:#fff;font-weight:600}
+.acts{display:flex;gap:4px;flex-wrap:wrap}.acts button{font-size:11px;padding:2px 8px}.acts button.del{color:#f85149;border:1px solid rgba(248,81,73,.35)}
+.outwarn{font-size:11px;line-height:1.4;color:#e3b341;background:rgba(227,179,65,.12);border-left:3px solid #e3b341;border-radius:4px;padding:5px 8px;margin-top:2px}
+#add{background:var(--brand-teal);color:#fff;font-weight:700}
 h3{margin:12px 0 6px}
 .sec-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin:4px 0 8px}
 .panel{display:none;border:1px solid var(--vscode-panel-border);border-radius:6px;padding:10px;margin-bottom:10px}
@@ -156,13 +257,13 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 .dim{opacity:.45;pointer-events:none}
 .wzbar{display:flex;gap:8px;justify-content:center;margin:6px 0 14px}
 .wzdot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--vscode-input-background);border:1px solid var(--vscode-panel-border);opacity:.5}
-.wzdot.act{background:#8957e5;color:#fff;opacity:1;border-color:#8957e5}.wzdot.done{background:#2ea043;color:#fff;opacity:1;border-color:#2ea043}
+.wzdot.act{background:var(--brand-teal);color:#fff;opacity:1;border-color:var(--brand-teal)}.wzdot.done{background:var(--brand-green);color:#062;opacity:1;border-color:var(--brand-green)}
 .wzttl{font-weight:700;margin-bottom:10px}.wznav{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
-#startwiz{background:#8957e5;color:#fff;font-weight:600;font-size:13px;padding:8px 16px}
+#startwiz{background:var(--brand-grad);color:#fff;font-weight:600;font-size:13px;padding:8px 16px}
 .notinit{text-align:center;padding:26px 8px}.notinit h2{margin:8px 0;font-size:16px}.notinit p{opacity:.7;font-size:12px;margin:0 0 6px}
 .w_finish{background:#2ea043;color:#fff}
 .ihelp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;font-size:10px;cursor:pointer;opacity:.7;margin-left:4px;vertical-align:middle}
-.helpbox{display:none;font-size:11px;line-height:1.5;background:var(--vscode-textBlockQuote-background);border-left:3px solid #8957e5;border-radius:4px;padding:8px 10px;margin:2px 0 10px}
+.helpbox{display:none;font-size:11px;line-height:1.5;background:var(--vscode-textBlockQuote-background);border-left:3px solid var(--brand-teal);border-radius:4px;padding:8px 10px;margin:2px 0 10px}
 .helpbox.open{display:block}.helpbox ol{margin:4px 0;padding-left:18px}.helpbox .lnk{color:var(--vscode-textLink-foreground);cursor:pointer;text-decoration:underline}
 </style></head><body>
 <div id="main">
@@ -254,7 +355,7 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
  </div>
 </div>
 <script>
-const v=acquireVsCodeApi();let st={},flt='all';
+const v=acquireVsCodeApi();let st={},flt='all';let knownTests=null;const sweeping=new Set();const appearing=new Set();
 function send(a,p){v.postMessage({action:a,...p})}
 document.getElementById('add').onclick=()=>send('add');
 document.getElementById('set').onclick=()=>document.getElementById('settings').classList.toggle('open');
@@ -321,19 +422,26 @@ function render(){
  document.getElementById('tfsbugs').style.display=st.tfsEnabled?'block':'none';
  s_model.innerHTML=(st.models||[]).map(x=>'<option value="'+x.id+'">'+x.name+'</option>').join('');if(st.preferredModel)s_model.value=st.preferredModel;
  const t=document.getElementById('tests');t.innerHTML='';
+ const allNames=(st.tests||[]).map(x=>x.name);
+ // Nový test (napr. vygenerovaný z TFS) → naskočí s animáciou príchodu.
+ if(knownTests){allNames.forEach(n=>{if(!knownTests.has(n)){appearing.add(n);setTimeout(()=>{appearing.delete(n);const e=document.getElementById('test-'+n);if(e)e.classList.remove('appear');},1300);}});}
  (st.tests||[]).filter(x=>flt==='all'||x.status===flt).forEach(x=>{
   const c=x.status==='passed'?'p':x.status==='failed'?'f':'u';
   const lbl=x.status==='passed'?'✓ PASSED':x.status==='failed'?'✕ FAILED':'? N/A';
-  const d=document.createElement('div');d.className='card '+c;d.id='test-'+x.name;
-  d.innerHTML='<div class="top"><span class="badge '+c+'">'+lbl+'</span><span class="name" title="'+x.name+'">'+x.name+'</span></div>'+
-   '<div class="bot"><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button data-a="run">Spustiť</button><button class="sec" data-a="scenario">Scenár</button><button class="sec" data-a="report">Report</button></span></div>';
-  d.querySelectorAll('button').forEach(b=>b.onclick=()=>send(b.dataset.a,{folder:x.name}));
+  const d=document.createElement('div');d.className='card '+c+(x.running?' run':'')+(sweeping.has(x.name)?' gen':'')+(appearing.has(x.name)?' appear':'');d.id='test-'+x.name;
+  const runchip=x.running?'<span class="runchip"><span class="dot"></span>beží…</span>':'';
+  const regBtn=/^bug_/.test(x.name)?'<button class="sec" data-a="regenerate" title="Znovu vygenerovať scenár z aktuálneho stavu bugu">↻ Regen</button>':'';
+  d.innerHTML='<div class="top"><span class="badge '+c+'">'+lbl+'</span><span class="name" title="'+x.name+'">'+x.name+'</span>'+runchip+'</div>'+
+   '<div class="bot"><span class="time">'+(x.lastRunAt||'')+'</span><span class="acts"><button data-a="run">Spustiť</button><button class="sec" data-a="scenario">Scenár</button><button class="sec" data-a="report">Report</button>'+regBtn+'<button class="sec del" data-a="delete" title="Zmazať test">🗑</button></span></div>';
+  d.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.a==='run'||b.dataset.a==='regenerate')genSweep(x.name);send(b.dataset.a,{folder:x.name});});
   t.appendChild(d);});
+ knownTests=new Set(allNames);
  syncDisabled();
 }
 window.addEventListener('message',e=>{
  if(e.data.type==='state'){st=e.data.payload;render();if(lastBugs&&lastBugs.ok)renderBugs(lastBugs);}
  else if(e.data.type==='bugs'){renderBugs(e.data.payload);}
+ else if(e.data.type==='reloadBugs'){if(lastBugs)send('loadBugs');}
  else if(e.data.type==='discovery'){
   const p=e.data.payload;const el=document.getElementById('w_disc');
   if(p.found){el.innerHTML='✅ '+p.message;if(p.org)document.getElementById('w_tfsorg').value=p.org;if(p.project)document.getElementById('w_tfsproj').value=p.project;if(!document.getElementById('w_tfs').checked){document.getElementById('w_tfs').checked=true;wzShow();}}
@@ -348,6 +456,25 @@ function bugStateClass(state){
  if(/removed|rejected/.test(s))return 'st-rem';
  return 'st-new';
 }
+function stateColor(state){
+ const s=(state||'').toLowerCase();
+ if(/closed|done|complete/.test(s))return '#3fb950';
+ if(/resolved|ready|fixed/.test(s))return '#e3b341';
+ if(/active|committed|progress|doing|investigat/.test(s))return '#1f9cf0';
+ if(/removed|rejected/.test(s))return '#d1242f';
+ return '#9aa0a6';
+}
+function typeColor(type){
+ const t=(type||'').toLowerCase();
+ if(/bug|chyba/.test(t))return '#CC293D';
+ if(/task|úloha|uloha/.test(t))return '#F2CB1D';
+ if(/requirement|user story|product backlog|story|požiadav|poziadav/.test(t))return '#009CCC';
+ if(/feature/.test(t))return '#773B93';
+ if(/epic/.test(t))return '#FF7B00';
+ if(/issue/.test(t))return '#B4009E';
+ if(/test case|test scen/.test(t))return '#00897B';
+ return '#8a8a8a';
+}
 let lastBugs=null;
 function renderBugs(p){
  lastBugs=p;
@@ -359,12 +486,23 @@ function renderBugs(p){
  p.bugs.forEach(x=>{
   const has=folders.includes('bug_'+x.id)||x.hasTest;
   const sc=bugStateClass(x.state);
-  const d=document.createElement('div');d.className='card '+sc+(has?' linked':'');
+  const tc=typeColor(x.type);
+  const d=document.createElement('div');d.className='card'+(has?' linked':'');
+  d.style.borderLeft='4px solid '+tc;
+  d.style.borderTop='4px solid '+stateColor(x.state);
   const act=has?'<button data-a="goTest">K testu →</button>':'<button data-a="bugTest">Vytvoriť test</button>';
+  const regBug=has&&x.outdated?'<button class="sec" data-a="regenBug" title="Regenerovať scenár z aktuálneho stavu bugu">↻ Regenerovať</button>':'';
   const linkedBadge=has?'<span class="badge linked" title="Existuje test">✓ test</span>':'';
-  d.innerHTML='<div class="top"><span class="badge '+sc+'">#'+x.id+' '+x.type+'</span><span class="name" title="'+x.title.replace(/"/g,'&quot;')+'">'+x.title+'</span>'+linkedBadge+'</div>'+
-   '<div class="bot"><span class="time">'+x.state+'</span><span class="acts">'+act+'</span></div>';
-  d.querySelector('.acts button').onclick=()=> has? highlightTest('bug_'+x.id) : send('bugTest',{id:x.id});
+  const openBtn=x.url?'<button class="sec" data-a="openBug" title="Otvoriť v TFS/Azure DevOps">🔗 Otvoriť</button>':'';
+  const outWarn=has&&x.outdated?'<div class="outwarn">⚠ Test scenár nemusí byť aktuálny — došlo k zmene v bug_'+x.id+'</div>':'';
+  d.innerHTML='<div class="top"><span class="badge '+sc+'">#'+x.id+' '+x.type+'</span><span class="name" title="'+x.title.replace(/"/g,'&quot;')+'">'+x.title+'</span>'+linkedBadge+'</div>'+outWarn+
+   '<div class="bot"><span class="time">'+x.state+'</span><span class="acts">'+openBtn+regBug+act+'</span></div>';
+  const primaryBtn=d.querySelector('.acts button[data-a="goTest"],.acts button[data-a="bugTest"]');
+  if(primaryBtn)primaryBtn.onclick=()=> has? highlightTest('bug_'+x.id) : send('bugTest',{id:x.id});
+  const rb=d.querySelector('.acts button[data-a="regenBug"]');
+  if(rb)rb.onclick=()=>{highlightTest('bug_'+x.id);send('regenerate',{folder:'bug_'+x.id});};
+  const ob=d.querySelector('.acts button[data-a="openBug"]');
+  if(ob)ob.onclick=()=>send('openBug',{url:x.url});
   b.appendChild(d);});
 }
 function highlightTest(name){
@@ -372,6 +510,12 @@ function highlightTest(name){
  const el=document.getElementById('test-'+name);
  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('hl');void el.offsetWidth;el.classList.add('hl');}
  else{send('refresh');}
+}
+function genSweep(name){
+ sweeping.add(name);
+ const el=document.getElementById('test-'+name);
+ if(el){el.classList.remove('gen');void el.offsetWidth;el.classList.add('gen');el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+ setTimeout(()=>{sweeping.delete(name);const e2=document.getElementById('test-'+name);if(e2)e2.classList.remove('gen');},1300);
 }
 v.postMessage({action:'refresh'});
 </script></body></html>`;
@@ -387,12 +531,30 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
         // Auto-refresh dashboardu keď agent mode dopíše result.md (test dokončený).
         const wsRoot = vscode.workspace.workspaceFolders?.[0];
         if (wsRoot) {
+            const wsFs = wsRoot.uri.fsPath;
             const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/*.md'));
-            const onChange = () => { void post(); };
+            const stepsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/steps/*'));
+            let expiryTimer: NodeJS.Timeout | undefined;
+            // Keď niečo beží, naplánuj re-render aby „running" zhaslo po uplynutí neaktivity.
+            const scheduleExpiry = (delayMs: number) => { if (expiryTimer) { clearTimeout(expiryTimer); } expiryTimer = setTimeout(() => { void post(); }, delayMs); };
+            const onChange = (uri?: vscode.Uri) => {
+                if (uri && /[\\/]result\.md$/i.test(uri.fsPath)) {
+                    const folder = extractFolder(uri.fsPath, wsFs);
+                    if (folder) { finalizeTest(wsFs, folder); }
+                }
+                void post();
+                scheduleExpiry(RUNNING_ACTIVITY_WINDOW_MS + 5_000);
+            };
             watcher.onDidCreate(onChange);
             watcher.onDidChange(onChange);
             watcher.onDidDelete(onChange);
-            view.onDidDispose(() => watcher.dispose());
+            stepsWatcher.onDidCreate(onChange);
+            stepsWatcher.onDidChange(onChange);
+            // Keď user klikne „Spustiť v agent mode" (marker sa zapíše), obnov dashboard hneď → „beží" naskočí bez režloadu.
+            const launchSub = launchSignal.event(() => { void post(); scheduleExpiry(RUNNING_MARKER_GRACE_MS + 5_000); });
+            // Po regenerácii scenára (beží v chate) obnov stav aj TFS bugy → ⚠ neaktuálnosť zmizne automaticky.
+            const refreshSub = dashboardRefreshSignal.event(() => { void post(); view.webview.postMessage({ type: 'reloadBugs' }); });
+            view.onDidDispose(() => { watcher.dispose(); stepsWatcher.dispose(); launchSub.dispose(); refreshSub.dispose(); if (expiryTimer) { clearTimeout(expiryTimer); } });
         }
         view.webview.onDidReceiveMessage(async (m: any) => {
             const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -415,8 +577,23 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                     await post(); return;
                 }
                 case 'add': sendPromptToChat('test'); return;
-                case 'run': sendPromptToChat(`run ${m.folder}`); return;
+                case 'run':
+                    // Marker `.running` sa NEzapisuje tu — zapíše ho až tlačidlo „Spustiť v agent mode"
+                    // (autotest.launchAgentRun), aby „beží" svietilo len pri reálnom spustení, nie pri regenerácii scenára.
+                    sendPromptToChat(`run ${m.folder}`); await post(); return;
                 case 'scenario': if (ws) { const sc = path.join(ws, 'autotest', m.folder, 'test_scenario.md'); if (fs.existsSync(sc)) { vscode.window.showTextDocument(vscode.Uri.file(sc)); } else { vscode.window.showWarningMessage(`Scenár pre ${m.folder} zatiaľ neexistuje.`); } } return;
+                case 'regenerate': sendPromptToChat(`regenerate ${m.folder}`); return;
+                case 'delete': {
+                    if (!ws) { return; }
+                    const pick = await vscode.window.showWarningMessage(`Naozaj zmazať test „${m.folder}"? Odstráni sa celý priečinok (scenár, report aj screenshoty).`, { modal: true }, 'Zmazať');
+                    if (pick === 'Zmazať') {
+                        try { fs.rmSync(path.join(ws, 'autotest', m.folder), { recursive: true, force: true }); vscode.window.showInformationMessage(`Test „${m.folder}" zmazaný.`); }
+                        catch (e: any) { vscode.window.showErrorMessage(`Zmazanie zlyhalo: ${e?.message || e}`); }
+                        await post();
+                        view.webview.postMessage({ type: 'reloadBugs' });
+                    }
+                    return;
+                }
                 case 'report': if (ws) { showReportPanel(ws, m.folder); } return;
                 case 'loadBugs': {
                     const res = await vscode.commands.executeCommand('autotest.fetchTfsBugs');
@@ -424,6 +601,7 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
                     return;
                 }
                 case 'bugTest': sendPromptToChat(`bug #${m.id}`); return;
+                case 'openBug': if (m.url) { vscode.env.openExternal(vscode.Uri.parse(m.url)); } return;
                 case 'saveSettings':
                     await saveEnvironmentConfig(this.ctx, { url: m.appUrl, appType: m.appType, environment: 'local' });
                     await saveLoginConfig(this.ctx, { required: !!m.login, username: m.username || undefined });

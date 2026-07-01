@@ -61,7 +61,7 @@ export class TfsClient {
     /**
      * Načíta detaily bugu z TFS
      */
-    async getBugDetails(bugId: number): Promise<{ title: string; description: string; comments: string[] } | null> {
+    async getBugDetails(bugId: number): Promise<{ title: string; description: string; comments: string[]; changedDate: string } | null> {
         if (!this.connection) {
             throw new Error('Nie si pripojený k TFS');
         }
@@ -88,7 +88,8 @@ export class TfsClient {
             return {
                 title,
                 description: cleanDescription,
-                comments
+                comments,
+                changedDate: String(workItem.fields['System.ChangedDate'] || '')
             };
         } catch (error: any) {
             console.error('Error getting bug details:', error);
@@ -126,7 +127,7 @@ export class TfsClient {
         states: string[] = ['Proposed', 'Active'],
         workItemTypes: string[] = ['Bug', 'Requirement', 'Test Case'],
         assignedToMe: boolean = true
-    ): Promise<Array<{ id: number; title: string; type: string; state: string; url: string }>> {
+    ): Promise<Array<{ id: number; title: string; type: string; state: string; url: string; changedDate: string }>> {
         if (!this.connection) {
             throw new Error('Nie si pripojený k TFS');
         }
@@ -167,6 +168,7 @@ export class TfsClient {
                             title: String(details.fields?.['System.Title'] || 'N/A'),
                             type: String(details.fields?.['System.WorkItemType'] || 'Unknown'),
                             state: String(details.fields?.['System.State'] || 'Unknown'),
+                            changedDate: String(details.fields?.['System.ChangedDate'] || ''),
                             url
                         };
                     } catch {
@@ -175,13 +177,14 @@ export class TfsClient {
                             title: 'Nepodarilo sa načítať',
                             type: 'Unknown',
                             state: 'Unknown',
+                            changedDate: '',
                             url: `${this.organizationUrl}/${this.projectName}/_workitems/edit/${id}`
                         };
                     }
                 })
             );
 
-            return workItems.filter((item): item is { id: number; title: string; type: string; state: string; url: string } => item !== null);
+            return workItems.filter((item): item is { id: number; title: string; type: string; state: string; url: string; changedDate: string } => item !== null);
         } catch (error: any) {
             console.error('Error getting my work items:', error);
             throw new Error(`Nepodarilo sa načítať work items: ${error.message}`);

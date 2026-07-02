@@ -42,6 +42,12 @@ export function activate(context: vscode.ExtensionContext) {
                 try { const rd = path.join(ws, 'autotest', arg.folder); if (fs.existsSync(rd)) { fs.writeFileSync(path.join(rd, '.running'), ''); } } catch { /* ignore */ }
             }
             launchSignal.fire();
+            // Otvor NOVÚ chat reláciu pre beh testu, aby nezabral aktuálnu konverzáciu
+            // používateľa. Pôvodná relácia zostáva uložená v zozname relácií (dá sa
+            // na ňu prepnúť) a používateľ môže ďalej pracovať v ďalšej novej relácii.
+            // Pozn.: `workbench.action.chat.open` vždy cieli na hlavný Chat panel, preto
+            // najprv založíme novú reláciu cez `newChat` a až potom pošleme dopyt.
+            try { await vscode.commands.executeCommand('workbench.action.chat.newChat'); } catch { /* ignore */ }
             await vscode.commands.executeCommand('workbench.action.chat.open', { query: arg?.query ?? '', mode: 'agent', isPartialQuery: false });
         }),
         vscode.commands.registerCommand('autotest.fetchTfsBugs', async () => {

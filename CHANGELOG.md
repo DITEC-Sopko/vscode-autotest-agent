@@ -2,6 +2,15 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.7.0]
+
+### Changed 🔄
+- **Beh testu v novej Copilot relácii** — spustenie testu najprv založí novú chat reláciu (`workbench.action.chat.newChat`) a až potom pošle dopyt. Pôvodná konverzácia zostáva v zozname relácií, takže používateľ môže ďalej pracovať a beh testu mu nezaberie aktuálny chat. (VS Code 1.127+ podporuje viac paralelných relácií.)
+- Tlačidlo spustenia premenované na **„▶️ Spustiť v novej relácii"**.
+
+### Fixed 🐛
+- **`.gitignore` sa už nezobrazuje v Changes** — `autotest/.gitignore` teraz ignoruje aj sám seba (`*` bez výnimky `!.gitignore`), takže celý priečinok vrátane `.gitignore` je mimo gitu.
+
 ## [0.6.0]
 
 ### Added ✨

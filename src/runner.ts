@@ -135,8 +135,8 @@ export async function delegateToAgentMode(
     const password = config.loginRequired ? await getLoginPassword(context) : undefined;
     const query = buildHandoffQuery(folder, testDir, platform, config, password);
 
-    response.markdown(`✅ **Scenár pripravený** (\`autotest/${folder}\`). Vykonanie prebehne v Copilot agent mode.\n\n`);
-    response.button({ command: 'autotest.launchAgentRun', title: '▶️ Spustiť v agent mode', arguments: [{ folder, query }] });
+    response.markdown(`✅ **Scenár pripravený** (\`autotest/${folder}\`). Beh sa spustí v **novej Copilot relácii**, takže môžeš ďalej pracovať vo svojej pôvodnej konverzácii (ostáva v zozname relácií).\n\n`);
+    response.button({ command: 'autotest.launchAgentRun', title: '▶️ Spustiť v novej relácii', arguments: [{ folder, query }] });
     response.button({ command: 'vscode.open', title: '📝 Scenár', arguments: [vscode.Uri.file(path.join(testDir, 'test_scenario.md'))] });
 }
 

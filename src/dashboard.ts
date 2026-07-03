@@ -35,27 +35,40 @@ function readStatus(testDir: string): { status: Status; mtime?: number } {
 const RUNNING_MARKER_GRACE_MS = 90_000;
 const RUNNING_ACTIVITY_WINDOW_MS = 45_000;
 
+/** Najnovší mtime súboru priamo v priečinku (nerekurzívne). 0 ak neexistuje/prázdny. */
+function latestChildMtime(dir: string): number {
+    if (!fs.existsSync(dir)) { return 0; }
+    let last = 0;
+    try { for (const f of fs.readdirSync(dir)) { const mt = fs.statSync(path.join(dir, f)).mtimeMs; if (mt > last) { last = mt; } } } catch { /* ignore */ }
+    return last;
+}
+
 /**
  * Test „beží", ak platí:
  *  (a) existuje marker `.running` (zapísaný pri reálnom spustení) novší než result.md a mladší než MARKER grace
- *      — pokryje štart pred prvým novým screenshotom, alebo
- *  (b) transcript.md/steps sa menili za posledné ACTIVITY okno a result.md ešte nie je novší (agent píše result.md až na konci).
+ *      — pokryje štart pred prvým výstupom (nábeh toolov/browsera/login), alebo
+ *  (b) beží marker tohto testu a nejaká aktivita (transcript.md / steps / zdieľaný _mcp_output, kam Playwright MCP
+ *      píše screenshoty a dokumenty počas behu) sa menila za posledné ACTIVITY okno a result.md ešte nie je novší
+ *      (agent píše transcript.md aj result.md až na konci — počas behu sa mení hlavne _mcp_output).
  */
 function isRunning(testDir: string): boolean {
     const rp = path.join(testDir, 'result.md');
     const resM = fs.existsSync(rp) ? fs.statSync(rp).mtimeMs : 0;
     const marker = path.join(testDir, '.running');
-    if (fs.existsSync(marker)) {
-        const mM = fs.statSync(marker).mtimeMs;
-        if (resM <= mM && (Date.now() - mM) < RUNNING_MARKER_GRACE_MS) { return true; }
-    }
+    const hasMarker = fs.existsSync(marker);
+    const markerM = hasMarker ? fs.statSync(marker).mtimeMs : 0;
+    // Test dobehol (result.md je novší než marker) → marker sa zmaže vo finalizeTest, ale kým sa tak stane, nesvieť.
+    if (hasMarker && resM > markerM) { return false; }
+    // (a) Štartovacie okno hneď po kliknutí, kým nabehnú tooly/browser/login a padne prvý výstup.
+    if (hasMarker && (Date.now() - markerM) < RUNNING_MARKER_GRACE_MS) { return true; }
+
+    // (b) Aktivita: transcript.md, steps/ a — pri bežiacom markeri — zdieľaný _mcp_output.
+    let last = 0;
     const tr = path.join(testDir, 'transcript.md');
-    if (!fs.existsSync(tr)) { return false; }
-    let last = fs.statSync(tr).mtimeMs;
-    const steps = path.join(testDir, 'steps');
-    if (fs.existsSync(steps)) {
-        try { for (const f of fs.readdirSync(steps)) { const mt = fs.statSync(path.join(steps, f)).mtimeMs; if (mt > last) { last = mt; } } } catch { /* ignore */ }
-    }
+    if (fs.existsSync(tr)) { last = Math.max(last, fs.statSync(tr).mtimeMs); }
+    last = Math.max(last, latestChildMtime(path.join(testDir, 'steps')));
+    if (hasMarker) { last = Math.max(last, latestChildMtime(path.join(path.dirname(testDir), '_mcp_output'))); }
+    if (last === 0) { return false; }
     return (Date.now() - last) < RUNNING_ACTIVITY_WINDOW_MS && resM <= last;
 }
 
@@ -534,6 +547,8 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
             const wsFs = wsRoot.uri.fsPath;
             const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/*.md'));
             const stepsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/*/steps/*'));
+            // Playwright MCP píše screenshoty/dokumenty do _mcp_output počas behu — je to hlavný „živý" signál, že test beží.
+            const mcpWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(wsRoot, 'autotest/_mcp_output/*'));
             let expiryTimer: NodeJS.Timeout | undefined;
             // Keď niečo beží, naplánuj re-render aby „running" zhaslo po uplynutí neaktivity.
             const scheduleExpiry = (delayMs: number) => { if (expiryTimer) { clearTimeout(expiryTimer); } expiryTimer = setTimeout(() => { void post(); }, delayMs); };
@@ -550,11 +565,13 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
             watcher.onDidDelete(onChange);
             stepsWatcher.onDidCreate(onChange);
             stepsWatcher.onDidChange(onChange);
+            mcpWatcher.onDidCreate(onChange);
+            mcpWatcher.onDidChange(onChange);
             // Keď user klikne „Spustiť v agent mode" (marker sa zapíše), obnov dashboard hneď → „beží" naskočí bez režloadu.
             const launchSub = launchSignal.event(() => { void post(); scheduleExpiry(RUNNING_MARKER_GRACE_MS + 5_000); });
             // Po regenerácii scenára (beží v chate) obnov stav aj TFS bugy → ⚠ neaktuálnosť zmizne automaticky.
             const refreshSub = dashboardRefreshSignal.event(() => { void post(); view.webview.postMessage({ type: 'reloadBugs' }); });
-            view.onDidDispose(() => { watcher.dispose(); stepsWatcher.dispose(); launchSub.dispose(); refreshSub.dispose(); if (expiryTimer) { clearTimeout(expiryTimer); } });
+            view.onDidDispose(() => { watcher.dispose(); stepsWatcher.dispose(); mcpWatcher.dispose(); launchSub.dispose(); refreshSub.dispose(); if (expiryTimer) { clearTimeout(expiryTimer); } });
         }
         view.webview.onDidReceiveMessage(async (m: any) => {
             const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

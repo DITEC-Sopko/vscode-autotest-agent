@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.7.1]
+
+### Fixed 🐛
+- **Indikátor „beží…" už nezhasína počas bežiaceho testu** — počas behu sa reálne mení len `autotest/_mcp_output` (screenshoty/výstupy Playwrightu), kým `steps/` a `transcript.md` sa napĺňajú až na konci. Detekcia behu preto po uplynutí štartovacieho okna (90 s) falošne zhasla. `isRunning` teraz berie do úvahy aj aktivitu v zdieľanom `_mcp_output` (viazané na `.running` marker konkrétneho testu) a pribudol `mcpWatcher`, ktorý pri každom novom výstupe obnoví dashboard a posunie časovač zhasnutia. Doplnená poistka, aby dokončený test (novší `result.md` než marker) nesvietil, kým sa marker odstráni.
+
 ## [0.7.0]
 
 ### Changed 🔄

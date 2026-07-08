@@ -12,3 +12,8 @@ test_screenshots/
 error_screenshot.png
 success_screenshot.png
 test_result.md
+
+# Prezentácia a jej generátor (neverzovať, len lokálne/v balíku)
+Autotest-Agent-prezentacia.pptx
+scripts/
+

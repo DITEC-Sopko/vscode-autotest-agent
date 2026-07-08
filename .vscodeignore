@@ -5,6 +5,8 @@ node_modules/**
 src/**
 .venv/**
 autotest/**
+scripts/**
+**/*.pptx
 .gitignore
 .yarnrc
 webpack.config.js

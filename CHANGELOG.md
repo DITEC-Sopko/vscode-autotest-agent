@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.7.2]
+
+### Fixed 🐛
+- **Zvyšné markery `.running` už falošne nerozsvietia „beží…" pri iných testoch** — `.running` marker sa doteraz mazal len po dokončení testu (zápis `result.md`). Nedobehnutý test tak nechal marker, ktorý spolu so zdieľaným `autotest/_mcp_output` (kam píše ktorýkoľvek bežiaci test) falošne rozsvietil „beží…" pri všetkých testoch so zvyšným markerom. `isRunning` teraz marker zmaže vždy, keď indikátor „beží…" pre daný test zhasne (test dobehol alebo marker prežil štartovacie okno a už nie je aktivita).
+
 ## [0.7.1]
 
 ### Fixed 🐛

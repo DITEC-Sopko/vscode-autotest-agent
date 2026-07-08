@@ -57,8 +57,12 @@ function isRunning(testDir: string): boolean {
     const marker = path.join(testDir, '.running');
     const hasMarker = fs.existsSync(marker);
     const markerM = hasMarker ? fs.statSync(marker).mtimeMs : 0;
+    // Keď indikátor „beží" pre tento test zhasne, zmaž zvyšný marker `.running`. Marker je zdieľane citlivý:
+    // pokým existuje, aktivita v spoločnom _mcp_output (kam píše KTORÝKOĽVEK bežiaci test) by tento test
+    // falošne rozsvietila. Vyčistením markera zabránime, aby zvyšné markery po nedobehnutých testoch svietili.
+    const clearMarker = () => { try { fs.rmSync(marker, { force: true }); } catch { /* ignore */ } };
     // Test dobehol (result.md je novší než marker) → marker sa zmaže vo finalizeTest, ale kým sa tak stane, nesvieť.
-    if (hasMarker && resM > markerM) { return false; }
+    if (hasMarker && resM > markerM) { clearMarker(); return false; }
     // (a) Štartovacie okno hneď po kliknutí, kým nabehnú tooly/browser/login a padne prvý výstup.
     if (hasMarker && (Date.now() - markerM) < RUNNING_MARKER_GRACE_MS) { return true; }
 
@@ -68,8 +72,11 @@ function isRunning(testDir: string): boolean {
     if (fs.existsSync(tr)) { last = Math.max(last, fs.statSync(tr).mtimeMs); }
     last = Math.max(last, latestChildMtime(path.join(testDir, 'steps')));
     if (hasMarker) { last = Math.max(last, latestChildMtime(path.join(path.dirname(testDir), '_mcp_output'))); }
-    if (last === 0) { return false; }
-    return (Date.now() - last) < RUNNING_ACTIVITY_WINDOW_MS && resM <= last;
+    const running = last !== 0 && (Date.now() - last) < RUNNING_ACTIVITY_WINDOW_MS && resM <= last;
+    // Marker prežil štartovacie okno a test už nie je aktívny → je zvyšný (nedobehnutý test). Zmaž ho,
+    // aby ho neskoršia aktivita iného testu v zdieľanom _mcp_output znovu falošne nerozsvietila.
+    if (!running && hasMarker) { clearMarker(); }
+    return running;
 }
 
 function listTests(ws: string): TestItem[] {

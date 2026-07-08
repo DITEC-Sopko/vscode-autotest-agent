@@ -2,6 +2,16 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.8.0]
+
+### Added ✨
+- **Hľadanie prepojeného Test Casu na TFS** — pri vytváraní aj regenerácii testu z bugu agent nájde Test Case prepojený cez reláciu **Related** alebo **Tested By**. Ak nejaký existuje, priamo v chate ponúkne tlačidlá na výber:
+  - **🐞 Len podľa popisu bugu** — scenár sa vygeneruje iba z popisu a komentárov bugu (pôvodné správanie).
+  - **📋 Celý test case #id** — do scenára sa zahrnú kroky test casu (načítané z poľa `Microsoft.VSTS.TCM.Steps`) a otestuje sa ako celok spolu s overením opravy bugu.
+
+### Changed 🔄
+- **Bohatší kontext bugu pre generátor scenára** — z bugu sa už neberá len jedno pole, ale skladajú sa všetky relevantné: **Popis**, **Kroky na reprodukciu**, **Akceptačné kritériá** a **Systémové informácie** — plus **diskusia/komentáre** ako doteraz.
+
 ## [0.7.2]
 
 ### Fixed 🐛

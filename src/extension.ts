@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadConfiguration } from './config';
-import { TfsClient } from './tfs-client';
+import { TfsClient, LinkedTestCase } from './tfs-client';
 import { getTfsPat } from './config';
 import { runTest, rerunTest, regenerateScenario } from './runner';
 import { runInit, openSettings, setupTfs } from './setup';
@@ -23,6 +23,48 @@ async function ensureTfs(context: vscode.ExtensionContext): Promise<TfsClient | 
         try { await tfsClient.connect(cfg.tfsOrganization, cfg.tfsProject, pat); } catch { tfsClient = null; }
     }
     return tfsClient;
+}
+
+/**
+ * Zobrazí v chate tlačidlá pre voľbu, ako spracovať bug s prepojeným Test Casom
+ * (rovnako ako tlačidlo spustenia testu). Kliknutie znovu vyvolá participanta
+ * s pôvodným dopytom rozšíreným o marker `tc:<id>` alebo `tc:none`.
+ * @param baseQuery pôvodný dopyt bez markera, napr. `bug #123` alebo `regenerate bug_123`.
+ */
+function presentTestCaseButtons(
+    response: vscode.ChatResponseStream,
+    baseQuery: string,
+    bugId: string,
+    testCases: LinkedTestCase[]
+): void {
+    response.markdown(`🔗 Pre bug #${bugId} som na TFS našiel prepojený test case (${testCases.map(t => `#${t.id} „${t.title}" – ${t.relation}`).join(', ')}).\n\n`);
+    response.markdown(`**Ako vygenerovať test scenár?**\n\n`);
+    response.button({
+        command: 'workbench.action.chat.open',
+        title: '🐞 Len podľa popisu bugu',
+        arguments: [{ query: `@autotest ${baseQuery} tc:none` }]
+    });
+    for (const tc of testCases) {
+        const stepCount = tc.steps ? tc.steps.split('\n').filter(l => /^\d+\./.test(l.trim())).length : 0;
+        const suffix = stepCount ? ` (${stepCount} krokov)` : '';
+        response.button({
+            command: 'workbench.action.chat.open',
+            title: `📋 Celý test case #${tc.id}: ${tc.title}${suffix}`,
+            arguments: [{ query: `@autotest ${baseQuery} tc:${tc.id}` }]
+        });
+    }
+}
+
+/** Zloží popis pre generátor scenára z popisu bugu a krokov prepojeného test casu. */
+function buildDescriptionWithTestCase(bugDescription: string, tc: LinkedTestCase): string {
+    let block = `\n\n## Prepojený Test Case #${tc.id}: ${tc.title} (${tc.relation})\n`
+        + `Vykonaj celý tento testovací prípad ako celok a spolu s ním over aj opravu bugu vyššie.`;
+    if (tc.steps) {
+        block += `\n\n### Kroky test casu:\n${tc.steps}`;
+    } else {
+        block += `\n\n(Test case nemá v TFS definované kroky – vychádzaj z jeho názvu a popisu bugu.)`;
+    }
+    return `${bugDescription}${block}`;
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -84,6 +126,8 @@ export function activate(context: vscode.ExtensionContext) {
         const cfg = loadConfiguration(context);
         const prompt = request.prompt.trim();
         const lower = prompt.toLowerCase();
+        // Marker voľby test casu z chat tlačidla: `tc:none` = len popis bugu, `tc:<id>` = celý test case.
+        const tcChoiceMatch = prompt.match(/\btc:(none|\d+)\b/i);
 
         if (request.command === 'init' || lower === 'init') { await runInit(context); response.markdown('✅ Inicializované.'); return; }
         if (request.command === 'model' || lower === 'model') { await pickModel(context); response.markdown('✅ Model nastavený.'); return; }
@@ -116,6 +160,18 @@ export function activate(context: vscode.ExtensionContext) {
                 txt += `\n\n## Komentáre (TFS diskusia – najnovšie info môže meniť pôvodný popis):\n`
                     + d.comments.map((c, i) => `${i + 1}. ${c}`).join('\n');
             }
+            // Ak je k bugu prepojený Test Case (Related / Tested By), ponúkni voľbu v chate:
+            // scenár len z popisu bugu, alebo celý test case + otestovať ako celok.
+            let linkedTestCases: LinkedTestCase[] = [];
+            try { linkedTestCases = await tfs.getLinkedTestCases(parseInt(bugId)); } catch { /* ignore */ }
+            if (linkedTestCases.length) {
+                if (!tcChoiceMatch) { presentTestCaseButtons(response, `regenerate ${folder}`, bugId, linkedTestCases); return; }
+                const val = tcChoiceMatch[1].toLowerCase();
+                if (val !== 'none') {
+                    const tc = linkedTestCases.find(t => t.id === parseInt(val));
+                    if (tc) { txt = buildDescriptionWithTestCase(txt, tc); }
+                }
+            }
             await regenerateScenario(context, response, token, ws, folder, bugId, txt, d.changedDate, cfg);
             dashboardRefreshSignal.fire();
             return;
@@ -127,6 +183,7 @@ export function activate(context: vscode.ExtensionContext) {
         let bugChangedDate: string | undefined;
         if (bugMatch) {
             bugId = bugMatch[1];
+            let linkedTestCases: LinkedTestCase[] = [];
             const tfs = await ensureTfs(context);
             if (tfs) {
                 try {
@@ -141,8 +198,19 @@ export function activate(context: vscode.ExtensionContext) {
                         bugChangedDate = d.changedDate;
                     }
                 } catch { /* ignore */ }
+                try { linkedTestCases = await tfs.getLinkedTestCases(parseInt(bugId)); } catch { /* ignore */ }
             }
             if (!description) { description = await getBugDescriptionWithClipboardOption(); }
+            // Ak je k bugu prepojený Test Case (Related / Tested By), ponúkni voľbu v chate:
+            // scenár len z popisu bugu, alebo celý test case + otestovať ako celok.
+            if (description && description !== '__CREATE_FILE__' && linkedTestCases.length) {
+                if (!tcChoiceMatch) { presentTestCaseButtons(response, `bug #${bugId}`, bugId, linkedTestCases); return; }
+                const val = tcChoiceMatch[1].toLowerCase();
+                if (val !== 'none') {
+                    const tc = linkedTestCases.find(t => t.id === parseInt(val));
+                    if (tc) { description = buildDescriptionWithTestCase(description, tc); }
+                }
+            }
         } else {
             description = await getBugDescriptionWithClipboardOption();
         }

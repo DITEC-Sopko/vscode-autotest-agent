@@ -1,5 +1,15 @@
 import * as azdev from 'azure-devops-node-api';
-import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { WorkItem, WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+
+/** Prepojený Test Case nájdený cez relácie work itemu (Related / Tested By). */
+export interface LinkedTestCase {
+    id: number;
+    title: string;
+    /** Ľudsky čitateľný typ prepojenia, napr. „Tested By" alebo „Related". */
+    relation: string;
+    /** Kroky test casu naformátované ako markdown (môže byť prázdne). */
+    steps: string;
+}
 
 /**
  * TFS/Azure DevOps Client wrapper
@@ -75,12 +85,21 @@ export class TfsClient {
             }
 
             const title = workItem.fields['System.Title'] || '';
-            const description = workItem.fields['System.Description'] || 
-                              workItem.fields['Microsoft.VSTS.TCM.ReproSteps'] || 
-                              '';
 
-            // Odstráň HTML tagy z popisu ak existujú
-            const cleanDescription = this.stripHtml(description);
+            // Poskladaj popis zo VŠETKÝCH relevantných polí bugu (nie len jedného),
+            // aby mal generátor scenára kompletný kontext. Prázdne polia sa vynechajú.
+            const sections: Array<{ heading: string; field: string }> = [
+                { heading: 'Popis', field: 'System.Description' },
+                { heading: 'Kroky na reprodukciu', field: 'Microsoft.VSTS.TCM.ReproSteps' },
+                { heading: 'Akceptačné kritériá', field: 'Microsoft.VSTS.Common.AcceptanceCriteria' },
+                { heading: 'Systémové informácie', field: 'Microsoft.VSTS.TCM.SystemInfo' }
+            ];
+            const parts: string[] = [];
+            for (const s of sections) {
+                const clean = this.stripHtml(String(workItem.fields[s.field] || ''));
+                if (clean) { parts.push(`## ${s.heading}:\n${clean}`); }
+            }
+            const cleanDescription = parts.join('\n\n');
 
             // Načítaj komentáre/diskusiu – podstatné info sa často presunie tam.
             const comments = await this.getWorkItemComments(witApi, bugId);
@@ -118,6 +137,103 @@ export class TfsClient {
             return '';
         }
         return html.replace(/<[^>]*>/g, '').trim();
+    }
+
+    /**
+     * Nájde Test Case-y prepojené na daný work item (bug/task/requirement)
+     * cez relácie **Related** alebo **Tested By**. Vráti len položky typu „Test Case",
+     * vrátane naparsovaných krokov.
+     */
+    async getLinkedTestCases(workItemId: number): Promise<LinkedTestCase[]> {
+        if (!this.connection) {
+            throw new Error('Nie si pripojený k TFS');
+        }
+
+        try {
+            const witApi = await this.connection.getWorkItemTrackingApi();
+            const wi = await witApi.getWorkItem(workItemId, undefined, undefined, WorkItemExpand.Relations, this.projectName);
+            const relations = wi?.relations || [];
+
+            // Zaujímajú nás len relácie Related a Tested By (forward = „tento bug je testovaný X").
+            const relLabels: Record<string, string> = {
+                'System.LinkTypes.Related': 'Related',
+                'Microsoft.VSTS.Common.TestedBy-Forward': 'Tested By'
+            };
+
+            const candidates = relations
+                .map(r => ({ id: this.extractWorkItemId(r?.url || ''), relation: relLabels[r?.rel || ''] || '' }))
+                .filter(c => c.id > 0 && c.relation);
+
+            const result: LinkedTestCase[] = [];
+            for (const c of candidates) {
+                if (result.some(r => r.id === c.id)) { continue; }
+                try {
+                    const tc = await witApi.getWorkItem(c.id, undefined, undefined, undefined, this.projectName);
+                    const type = String(tc.fields?.['System.WorkItemType'] || '');
+                    if (type !== 'Test Case') { continue; }
+                    result.push({
+                        id: c.id,
+                        title: String(tc.fields?.['System.Title'] || `Test Case #${c.id}`),
+                        relation: c.relation,
+                        steps: this.parseTestSteps(String(tc.fields?.['Microsoft.VSTS.TCM.Steps'] || ''))
+                    });
+                } catch { /* jedna nedostupná položka nesmie zhodiť celé hľadanie */ }
+            }
+            return result;
+        } catch (error: any) {
+            console.error('Error getting linked test cases:', error);
+            throw new Error(`Nepodarilo sa načítať prepojené test case-y pre #${workItemId}: ${error.message}`);
+        }
+    }
+
+    /** Vytiahne číselné ID work itemu z URL relácie (…/workItems/1234). */
+    private extractWorkItemId(url: string): number {
+        const m = url.match(/\/(\d+)\s*$/);
+        return m ? parseInt(m[1], 10) : 0;
+    }
+
+    /**
+     * Naparsuje kroky Test Casu z poľa `Microsoft.VSTS.TCM.Steps` (XML).
+     * Každý `<step>` má dva `<parameterizedString>` – akciu a očakávaný výsledok.
+     */
+    private parseTestSteps(xml: string): string {
+        if (!xml) {
+            return '';
+        }
+        const steps: string[] = [];
+        const stepRe = /<step\b[^>]*>([\s\S]*?)<\/step>/g;
+        const paramRe = /<parameterizedString\b[^>]*>([\s\S]*?)<\/parameterizedString>/g;
+        let stepMatch: RegExpExecArray | null;
+        let idx = 1;
+        while ((stepMatch = stepRe.exec(xml)) !== null) {
+            const inner = stepMatch[1];
+            const params: string[] = [];
+            let pMatch: RegExpExecArray | null;
+            paramRe.lastIndex = 0;
+            while ((pMatch = paramRe.exec(inner)) !== null) {
+                params.push(this.decodeStepText(pMatch[1]));
+            }
+            const action = params[0] || '';
+            const expected = params[1] || '';
+            if (!action && !expected) { continue; }
+            let line = `${idx}. ${action || '(bez popisu akcie)'}`;
+            if (expected) { line += `\n   Očakávaný výsledok: ${expected}`; }
+            steps.push(line);
+            idx++;
+        }
+        return steps.join('\n');
+    }
+
+    /** Dekóduje HTML-encoded text kroku a odstráni HTML tagy. */
+    private decodeStepText(raw: string): string {
+        const decoded = raw
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&');
+        return this.stripHtml(decoded);
     }
 
     /**

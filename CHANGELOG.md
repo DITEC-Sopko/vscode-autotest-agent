@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.8.2]
+
+### Changed 🔄
+- **Efektívna práca s dropdownmi/dlhými zoznamami** — pokyn pre agenta (web) doplnený tak, aby pri dropdown/combobox/listbox s vyhľadávaním **vždy najprv použil filter** (napísal názov položky) namiesto opakovaného snapshotovania celého dlhého zoznamu. Znižuje počet iterácií agenta a zrýchľuje beh na formulároch s dlhými číselníkmi.
+
 ## [0.8.1]
 
 ### Changed 🔄

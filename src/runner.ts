@@ -75,7 +75,12 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 1. Spusti/pripoj aplikáciu, zisti reálnu štruktúru (snapshot/tree) — nehádaj selektory.
 2. Vykonaj kroky scenára. Overuj stav cez **snapshot** (accessibility strom), nie cez screenshoty. Screenshot ukladaj **absolútnou cestou** do \`${stepsDir}\` len pri **kľúčových krokoch** (prihlásenie, každý overovaný výsledok, zlyhanie) — NIE po každej drobnej akcii. Screenshoty slúžia len ako dôkaz do reportu, na rozhodovanie ich nepotrebuješ.
 3. Skontroluj očakávaný výsledok.
-
+${platform === 'web' ? `
+## Efektívna práca s dropdownmi / dlhými zoznamami (DÔLEŽITÉ pre rýchlosť)
+- Ak má dropdown/combobox/listbox možnosť **vyhľadávať/filtrovať** (input na písanie, placeholder „Hľadať…", alebo sa dá písať priamo do poľa), **VŽDY ju využi ako prvú voľbu** — napíš názov hľadanej položky a vyber z filtrovaného výsledku.
+- **Nescrolluj a nesnímaj opakovane snapshot celého dlhého zoznamu**, aby si našiel položku — to je pomalé a míňa kroky. Písanie do filtra zúži zoznam na 1–2 položky ihneď.
+- Až keď dropdown filter naozaj NEMÁ, použi snapshot zoznamu a klik na konkrétnu položku.
+` : ''}
 ## Reporty a dokumenty (PDF/DOCX/XLSX/XML/CSV)
 - **NIKDY neotváraj dokument v prehliadači ani cez „Navigate to a URL" na \`file:\` cestu — Playwright to zablokuje („Access to file: protocol is blocked").**
 - Na overenie obsahu použi nástroj **\`autotest_readReport\`** (#readReport) s ABSOLÚTNOU cestou k súboru — vráti extrahovaný text, ktorý porovnáš s očakávaným výsledkom.

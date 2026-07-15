@@ -15,6 +15,9 @@ export function ensureMcpConfigured(workspacePath: string, platform: Platform, h
     // Pozn.: `--no-headless` už nie je podporované (headed je default). Headless → pridaj `--headless`, inak nič.
     const playwrightArgs = ['-y', '@playwright/mcp@latest'];
     if (headless) { playwrightArgs.push('--headless'); }
+    // Screenshoty sa STÁLE uložia na disk (do reportu), ale neposielajú sa do kontextu modelu.
+    // Šetrí tokeny → výrazne rýchlejší agent-loop (obrázky inak nafukujú kontext každého ďalšieho kroku).
+    playwrightArgs.push('--image-responses', 'omit');
     playwrightArgs.push('--output-dir', 'autotest/_mcp_output');
     const server = platform === 'desktop'
         ? { command: 'npx', args: ['-y', 'terminator-mcp-agent@latest'], env: { LOG_LEVEL: 'info' } }

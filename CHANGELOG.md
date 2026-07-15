@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.8.1]
+
+### Changed 🔄
+- **Zrýchlený beh web testov (Playwright MCP)** — screenshoty sa už neposielajú do kontextu modelu (`--image-responses omit`), len sa ukladajú na disk do reportu. Tým sa výrazne zmenší kontext agenta a zrýchli sa každý krok agent-loopu. Pokyn pre agenta zmenený tak, aby robil screenshoty len pri kľúčových krokoch a stav overoval cez accessibility snapshot, nie cez obrázky.
+
 ## [0.8.0]
 
 ### Added ✨

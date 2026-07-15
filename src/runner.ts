@@ -73,7 +73,7 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 
 ## Postup
 1. Spusti/pripoj aplikáciu, zisti reálnu štruktúru (snapshot/tree) — nehádaj selektory.
-2. Vykonaj kroky scenára, po každom kroku ulož screenshot **absolútnou cestou** do \`${stepsDir}\`.
+2. Vykonaj kroky scenára. Overuj stav cez **snapshot** (accessibility strom), nie cez screenshoty. Screenshot ukladaj **absolútnou cestou** do \`${stepsDir}\` len pri **kľúčových krokoch** (prihlásenie, každý overovaný výsledok, zlyhanie) — NIE po každej drobnej akcii. Screenshoty slúžia len ako dôkaz do reportu, na rozhodovanie ich nepotrebuješ.
 3. Skontroluj očakávaný výsledok.
 
 ## Reporty a dokumenty (PDF/DOCX/XLSX/XML/CSV)

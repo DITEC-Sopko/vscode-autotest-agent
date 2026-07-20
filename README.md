@@ -4,7 +4,7 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 
 > Cieľ: ušetriť čas testerom aj programátorom — namiesto písania a opravovania krehkých testov necháš agenta scenár reálne odklikať a vizuálne overiť.
 
-[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.8.2-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.8.2.vsix)
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.9.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.9.0.vsix)
 
 ---
 
@@ -14,7 +14,8 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 - 🌐 **Web aj 🖥️ desktop** — jednotný tok cez MCP servery (Playwright / Terminator).
 - 🤖 **Vykonanie v Copilot agent mode** — agent klika, píše a screenshotuje sám; pýta sa len keď chýba prihlásenie alebo údaj zo scenára.
 - 🔗 **TFS / Azure DevOps** — načítanie pridelených work items a vytvorenie testu priamo z bugu.
-- 📊 **Pekný report** — verdikt PASSED/FAILED + zhrnutie + screenshoty každého kroku.
+- 📊 **Pekný report** — verdikt PASSED/FAILED + zhrnutie + screenshoty každého kroku (pred každým behom sa `steps/` premaže, takže report obsahuje len aktuálny beh).
+- 🔎 **Analýza príčiny pri zlyhaní** — pri `FAILED` agent skúsi nájsť pravdepodobnú príčinu v kóde (workspace alebo cez TFS/Azure DevOps) a zapíše ju do reportu — bez opravy kódu.
 - ♻️ **Auto‑refresh** — dashboard sa po dokončení testu sám obnoví.
 
 ---
@@ -33,9 +34,9 @@ MCP servery sa sťahujú automaticky cez `npx` pri prvom spustení testu.
 
 Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`:
 
-[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.8.2-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.8.2.vsix)
+[![Stiahnuť .vsix](https://img.shields.io/badge/⬇%20Stiahnuť%20.vsix-v0.9.0-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://github.com/DITEC-Sopko/vscode-autotest-agent/raw/main/autotest-agent-0.9.0.vsix)
 
-1. Stiahni súbor `autotest-agent-0.8.2.vsix`.
+1. Stiahni súbor `autotest-agent-0.9.0.vsix`.
 2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).
 3. Klikni na **`...`** (vpravo hore) → **Install from VSIX…**.
 4. Vyber stiahnutý `.vsix` a potvrď.
@@ -43,7 +44,7 @@ Extension zatiaľ nie je v Marketplace — inštaluje sa z priloženého `.vsix`
 Alebo cez príkazový riadok:
 
 ```bash
-code --install-extension autotest-agent-0.8.2.vsix
+code --install-extension autotest-agent-0.9.0.vsix
 ```
 
 ---
@@ -98,9 +99,9 @@ autotest/
   bug_637890/            # alebo test_001
     test_scenario.md     # vygenerovaný scenár (editovateľný)
     agent_prompt.md      # pokyn pre agent mode
-    result.md            # VERDIKT: PASSED | FAILED + zhrnutie
+    result.md            # VERDIKT: PASSED | FAILED + zhrnutie (+ Pravdepodobná príčina pri FAILED)
     transcript.md        # zoznam MCP akcií
-    steps/               # screenshoty krokov
+    steps/               # screenshoty krokov (premazané pred každým behom)
 ```
 
 Priečinok `autotest/` sa automaticky pridáva do `.gitignore`.

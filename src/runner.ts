@@ -86,8 +86,16 @@ ${platform === 'web' ? `
 - Na overenie obsahu použi nástroj **\`autotest_readReport\`** (#readReport) s ABSOLÚTNOU cestou k súboru — vráti extrahovaný text, ktorý porovnáš s očakávaným výsledkom.
 - Ak appka vygeneruje dokument, ulož aj jeho **screenshot absolútnou cestou do \`${stepsDir}\`**. Stiahnuté/vygenerované súbory sa po dokončení automaticky prenesú do reportu.
 
+## Ak test ZLYHAL — nájdi pravdepodobnú príčinu (NEOPRAVUJ)
+- Keď je verdikt \`FAILED\`, pokús sa nájsť **pravdepodobnú príčinu v zdrojovom kóde** — ale **nič neopravuj**, len ju popíš do reportu.
+- Postupuj podľa toho, čo máš k dispozícii:
+  1. **Kód priamo v tomto projekte (workspace):** prehľadaj repozitár (hľadanie v súboroch, čítanie súborov) podľa chybovej hlášky, názvov polí/tlačidiel, textov z UI alebo endpointov, ktoré v teste zlyhali.
+  2. **Kód v TFS/Azure DevOps:** ak nemáš zdroják v workspace, ale je dostupný Azure DevOps MCP server (nástroje na hľadanie a čítanie kódu v repozitári), vyhľadaj a prečítaj relevantný kód tam.
+- Ak príčinu nájdeš, do \`result.md\` pridaj sekciu **\`## Pravdepodobná príčina\`**: krátky popis, konkrétny súbor/riadok alebo miesto (ak vieš) a prečo to spôsobuje chybu. Ak sa príčinu nepodarí spoľahlivo určiť, napíš to (\`Príčinu sa nepodarilo jednoznačne určiť\`) a uveď, čo si skúmal.
+- **Zákaz úprav kódu aplikácie** — si len tester, kód needituj ani nenavrhuj commit. Výstupom je iba popis príčiny v reporte.
+
 ## Výstup (absolútne cesty)
-- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie.
+- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie).
 - \`${path.join(absDir, 'transcript.md')}\` — zoznam MCP akcií.
 - \`${stepsDir}\` — screenshoty krokov.`;
 }
@@ -97,7 +105,7 @@ function buildHandoffQuery(folder: string, absDir: string, platform: Platform, c
     const creds = config.loginRequired && config.username
         ? ` Prihlásenie: používateľ "${config.username}"${password ? `, heslo "${password}"` : ''}.` : '';
     const stepsDir = path.join(absDir, 'steps');
-    return `Over úlohu pomocou ${tool}. Postupuj podľa ${path.join(absDir, 'agent_prompt.md')} a scenára ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Screenshoty a výstupy ukladaj VÝHRADNE ABSOLÚTNYMI cestami (screenshoty do ${stepsDir}). Dokumenty NEOTVÁRAJ cez file: URL — použi nástroj #readReport. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
+    return `Over úlohu pomocou ${tool}. Postupuj podľa ${path.join(absDir, 'agent_prompt.md')} a scenára ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Screenshoty a výstupy ukladaj VÝHRADNE ABSOLÚTNYMI cestami (screenshoty do ${stepsDir}). Dokumenty NEOTVÁRAJ cez file: URL — použi nástroj #readReport. Ak test ZLYHÁ, skús nájsť pravdepodobnú príčinu v zdrojovom kóde (najprv v tomto workspace, inak cez Azure DevOps/TFS ak je dostupný) — NIČ neopravuj, len pridaj sekciu "## Pravdepodobná príčina" do result.md. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
 }
 
 /** Spoločné delegovanie do agent mode pre desktop aj web. */
@@ -111,7 +119,11 @@ export async function delegateToAgentMode(
     const platform: Platform = config.appType === 'desktop' ? 'desktop' : 'web';
     const testDir = path.join(workspacePath, 'autotest', folder);
     if (!fs.existsSync(testDir)) { fs.mkdirSync(testDir, { recursive: true }); }
-    fs.mkdirSync(path.join(testDir, 'steps'), { recursive: true });
+    // Vždy pred spustením premaž steps/ — inak by sa do reportu dostali screenshoty
+    // z predchádzajúceho behu (napr. pri opätovnom spustení toho istého testu/bugu).
+    const stepsPath = path.join(testDir, 'steps');
+    try { fs.rmSync(stepsPath, { recursive: true, force: true }); } catch { /* ignore */ }
+    fs.mkdirSync(stepsPath, { recursive: true });
     ensureGitignore(workspacePath);
 
     const headless = config.headlessMode !== false;
@@ -140,8 +152,8 @@ export async function delegateToAgentMode(
     const password = config.loginRequired ? await getLoginPassword(context) : undefined;
     const query = buildHandoffQuery(folder, testDir, platform, config, password);
 
-    response.markdown(`✅ **Scenár pripravený** (\`autotest/${folder}\`). Beh sa spustí v **novej Copilot relácii**, takže môžeš ďalej pracovať vo svojej pôvodnej konverzácii (ostáva v zozname relácií).\n\n`);
-    response.button({ command: 'autotest.launchAgentRun', title: '▶️ Spustiť v novej relácii', arguments: [{ folder, query }] });
+    response.markdown(`✅ **Scenár pripravený** (\`autotest/${folder}\`). Beh sa spustí v tejto Copilot relácii.\n\n`);
+    response.button({ command: 'autotest.launchAgentRun', title: '▶️ Spustiť test', arguments: [{ folder, query }] });
     response.button({ command: 'vscode.open', title: '📝 Scenár', arguments: [vscode.Uri.file(path.join(testDir, 'test_scenario.md'))] });
 }
 

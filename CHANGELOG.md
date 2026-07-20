@@ -2,6 +2,17 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.9.0]
+
+### Added ✨
+- **Analýza pravdepodobnej príčiny pri zlyhaní** — keď test skončí verdiktom `FAILED`, agent sa pokúsi nájsť **pravdepodobnú príčinu v zdrojovom kóde**: najprv prehľadá kód v **aktuálnom workspace**, a ak zdroják nie je po ruke, využije dostupný **Azure DevOps / TFS MCP** na vyhľadanie a prečítanie relevantného kódu v repozitári. Príčinu **neopravuje** — len ju zapíše do `result.md` do sekcie `## Pravdepodobná príčina`.
+
+### Changed 🔄
+- **Beh testu sa spúšťa v aktuálnej Copilot relácii** — spustenie už nezakladá novú chat reláciu (zrušené správanie z 0.7.0). Test beží tam, kde práve pracuješ. Tlačidlo spustenia premenované späť na **„▶️ Spustiť test"**.
+
+### Fixed 🐛
+- **Do reportu sa už nedostanú screenshoty z predchádzajúceho behu** — priečinok `steps/` sa teraz **premaže pred každým spustením** testu. Pri opätovnom spustení toho istého testu/bugu report obsahuje len screenshoty z aktuálneho behu.
+
 ## [0.8.2]
 
 ### Changed 🔄

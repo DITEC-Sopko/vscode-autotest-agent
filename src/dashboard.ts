@@ -230,7 +230,7 @@ body{font-family:var(--vscode-font-family);padding:16px;color:var(--vscode-foreg
 </body></html>`;
 }
 
-function html(): string {
+function html(version: string): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 :root{--brand-teal:#009ca6;--brand-teal-2:#33b7bf;--brand-green:#8bc53f;--brand-grad:linear-gradient(135deg,#009ca6,#8bc53f)}
 body{font-family:var(--vscode-font-family);font-size:13px;color:var(--vscode-foreground);padding:8px;min-width:240px;box-sizing:border-box}
@@ -285,6 +285,7 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 .ihelp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;font-size:10px;cursor:pointer;opacity:.7;margin-left:4px;vertical-align:middle}
 .helpbox{display:none;font-size:11px;line-height:1.5;background:var(--vscode-textBlockQuote-background);border-left:3px solid var(--brand-teal);border-radius:4px;padding:8px 10px;margin:2px 0 10px}
 .helpbox.open{display:block}.helpbox ol{margin:4px 0;padding-left:18px}.helpbox .lnk{color:var(--vscode-textLink-foreground);cursor:pointer;text-decoration:underline}
+.foot{margin-top:16px;padding-top:8px;border-top:1px solid var(--vscode-panel-border);text-align:center;font-size:10px;opacity:.55;letter-spacing:.3px}
 </style></head><body>
 <div id="main">
 <div class="toolbar"><button id="add">+ Test</button><button class="sec" id="set">⚙ Nastavenia</button><button class="sec" id="ref">⟳</button></div>
@@ -374,6 +375,7 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
   </div>
  </div>
 </div>
+<div class="foot">Autotest Agent · v${version}</div>
 <script>
 const v=acquireVsCodeApi();let st={},flt='all';let knownTests=null;const sweeping=new Set();const appearing=new Set();
 function send(a,p){v.postMessage({action:a,...p})}
@@ -546,7 +548,7 @@ export class DashboardProvider implements vscode.WebviewViewProvider {
     constructor(private ctx: vscode.ExtensionContext) {}
     resolveWebviewView(view: vscode.WebviewView): void {
         view.webview.options = { enableScripts: true };
-        view.webview.html = html();
+        view.webview.html = html(this.ctx.extension.packageJSON.version);
         const post = async () => view.webview.postMessage({ type: 'state', payload: await buildState(this.ctx) });
         // Auto-refresh dashboardu keď agent mode dopíše result.md (test dokončený).
         const wsRoot = vscode.workspace.workspaceFolders?.[0];

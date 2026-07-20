@@ -2,6 +2,11 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [0.9.1]
+
+### Added ✨
+- **Verzia extension v pätičke dashboardu** — na spodku panela Autotest sa zobrazuje aktuálna verzia (napr. `Autotest Agent · v0.9.1`), aby bolo hneď jasné, ktorá verzia beží.
+
 ## [0.9.0]
 
 ### Added ✨

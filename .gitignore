@@ -3,7 +3,6 @@ dist
 node_modules
 .vscode-test/
 *.vsix
-!autotest-agent-*.vsix
 
 # Autotest Agent - generované testy (negitovať)
 autotest/

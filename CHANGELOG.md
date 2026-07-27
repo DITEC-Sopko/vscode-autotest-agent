@@ -2,6 +2,16 @@
 
 All notable changes to the "autotest-agent" extension.
 
+## [1.0.0] - 2026-07-27
+
+### Added ✨
+- **Automatizovaný GitHub Release proces** — pridaná GitHub Actions workflow, ktorá automaticky vytvára release s .vsix súborom pri push tagu. Extension teraz možno stiahnuť priamo z GitHub Releases.
+
+### Changed 🔄
+- **Stabilná 1.0 verzia** — projekt dosiahol stabilitu a kompletnú funkcionalitu pre produkčné nasadenie.
+
+---
+
 ## [0.9.1]
 
 ### Added ✨

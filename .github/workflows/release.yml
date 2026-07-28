@@ -24,6 +24,9 @@ jobs:
       
       - name: Package extension
         run: npm run vsce:package
+
+      - name: Rename for direct download
+        run: cp autotest-agent-*.vsix testpilot-ai.vsix
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

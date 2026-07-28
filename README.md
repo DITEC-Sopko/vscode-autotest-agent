@@ -4,7 +4,7 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 
 > Cieľ: ušetriť čas testerom aj programátorom — namiesto písania a opravovania krehkých testov necháš agenta scenár reálne odklikať a vizuálne overiť.
 
-[![GitHub Release](https://img.shields.io/github/v/release/DITEC-Sopko/vscode-autotest-agent?style=for-the-badge&logo=visualstudiocode&logoColor=white&label=Stiahnuť%20.vsix)](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/DITEC-Sopko/vscode-autotest-agent?style=for-the-badge&logo=visualstudiocode&logoColor=white&label=Stiahnuť%20.vsix)](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest/download/testpilot-ai.vsix)
 
 ---
 
@@ -34,17 +34,17 @@ MCP servery sa sťahujú automaticky cez `npx` pri prvom spustení testu.
 
 Extension zatiaľ nie je v Marketplace — inštaluje sa z `.vsix` súboru z GitHub Releases:
 
-[![GitHub Release](https://img.shields.io/github/v/release/DITEC-Sopko/vscode-autotest-agent?style=for-the-badge&logo=visualstudiocode&logoColor=white&label=Stiahnuť%20.vsix)](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/DITEC-Sopko/vscode-autotest-agent?style=for-the-badge&logo=visualstudiocode&logoColor=white&label=Stiahnuť%20.vsix)](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest/download/testpilot-ai.vsix)
 
-1. Prejdi na [Releases](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest) a stiahni najnovší `autotest-agent-X.Y.Z.vsix`.
-2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).
+1. Alebo stiahni priamo: [testpilot-ai.vsix](https://github.com/DITEC-Sopko/vscode-autotest-agent/releases/latest/download/testpilot-ai.vsix)
+2. Vo VS Code otvor **Extensions** (`Ctrl+Shift+X`).  
 3. Klikni na **`...`** (vpravo hore) → **Install from VSIX…**.
 4. Vyber stiahnutý `.vsix` a potvrď.
 
 Alebo cez príkazový riadok:
 
 ```bash
-code --install-extension autotest-agent-X.Y.Z.vsix
+code --install-extension testpilot-ai.vsix
 ```
 
 ---

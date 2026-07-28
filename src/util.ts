@@ -43,6 +43,6 @@ export function ensureGitignore(workspacePath: string): void {
     const dir = path.join(workspacePath, 'autotest');
     if (!fs.existsSync(dir)) { return; }
     const gi = path.join(dir, '.gitignore');
-    const content = '# Autotest Agent – generované testy a výstupy (nepatria do gitu)\n*\n';
+    const content = '# TestPilot AI – generované testy a výstupy (nepatria do gitu)\n*\n';
     try { fs.writeFileSync(gi, content, 'utf-8'); } catch { /* ignore */ }
 }

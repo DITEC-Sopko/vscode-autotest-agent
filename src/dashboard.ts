@@ -375,7 +375,7 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
   </div>
  </div>
 </div>
-<div class="foot">Autotest Agent · v${version}</div>
+<div class="foot">TestPilot AI · v${version}</div>
 <script>
 const v=acquireVsCodeApi();let st={},flt='all';let knownTests=null;const sweeping=new Set();const appearing=new Set();
 function send(a,p){v.postMessage({action:a,...p})}

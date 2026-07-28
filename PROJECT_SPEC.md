@@ -1,4 +1,4 @@
-# Autotest Agent — Špecifikácia (čistá verzia)
+# TestPilot AI — Špecifikácia (čistá verzia)
 
 > Cieľ: AI agent vo VS Code, ktorý overí opravu bugu/test scenár tak, že **priamo ovláda
 > aplikáciu cez MCP server** (desktop = Terminator, web = Playwright). Žiadny code-gen,

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 /**
- * Konfiguračná štruktúra pre Autotest Agent
+ * Konfiguračná štruktúra pre TestPilot AI
  */
 export interface AutotestConfig {
     userRole: 'developer' | 'tester' | 'unknown';

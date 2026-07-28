@@ -95,7 +95,7 @@ ${platform === 'web' ? `
 - **Zákaz úprav kódu aplikácie** — si len tester, kód needituj ani nenavrhuj commit. Výstupom je iba popis príčiny v reporte.
 
 ## Výstup (absolútne cesty)
-- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie).
+- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie). **Na úplnom konci result.md vždy pridaj:** \`\n\n---\n\n*Tento report a vyššie uvedená analýza pravdepodobnej príčiny boli vygenerované umelou inteligenciou (AI), ktorá môže robiť chyby. Je potrebné skontrolovať a overiť tieto informácie pred akýmkoľvek ďalším použitím alebo rozhodnutím.*\`
 - \`${path.join(absDir, 'transcript.md')}\` — zoznam MCP akcií.
 - \`${stepsDir}\` — screenshoty krokov.`;
 }

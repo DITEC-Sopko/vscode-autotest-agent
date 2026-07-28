@@ -1,8 +1,8 @@
 {
   "name": "autotest-agent",
-  "displayName": "Autotest Agent",
+  "displayName": "TestPilot AI",
   "description": "AI agent, ktorý overí bug či scenár priamym ovládaním aplikácie cez MCP (Playwright/Terminator) v GitHub Copilot agent mode.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "icon": "icon.png",
   "publisher": "ditec-sopko",
@@ -25,7 +25,7 @@
       "activitybar": [
         {
           "id": "autotest",
-          "title": "Autotest",
+          "title": "TestPilot AI",
           "icon": "sidebar-icon.svg"
         }
       ]

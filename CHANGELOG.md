@@ -1,6 +1,14 @@
 # Change Log
 
-All notable changes to the "autotest-agent" extension.
+All notable changes to the "TestPilot AI" extension.
+
+## [1.0.1] - 2026-07-28
+
+### Changed 🔄
+- **Premenovanie na TestPilot AI** — extension má nový zobrazovaný názov "TestPilot AI" (activity bar, dashboard footer, README).
+- **AI disclaimer v reporte** — `result.md` teraz na konci vždy obsahuje upozornenie, že analýza bola vygenerovaná AI a je potrebné ju overiť.
+
+---
 
 ## [1.0.0] - 2026-07-27
 

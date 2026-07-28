@@ -4,7 +4,7 @@ node_modules
 .vscode-test/
 *.vsix
 
-# Autotest Agent - generované testy (negitovať)
+# TestPilot AI - generované testy (negitovať)
 autotest/
 test_screenshots/
 *.spec.js

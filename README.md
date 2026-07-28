@@ -1,4 +1,4 @@
-# Autotest Agent
+# TestPilot AI
 
 AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že priamo ovláda aplikáciu** — web cez [Playwright MCP](https://github.com/microsoft/playwright-mcp), desktop cez [Terminator MCP](https://github.com/mediar-ai/terminator). Žiadne generované test skripty, žiadne ručné ladenie selektorov. Scenár vykoná GitHub Copilot agent mode cez MCP nástroje a zapíše jediný výsledok so screenshotmi krok‑po‑kroku.
 

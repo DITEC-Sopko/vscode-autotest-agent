@@ -75,6 +75,13 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 1. Spusti/pripoj aplikáciu, zisti reálnu štruktúru (snapshot/tree) — nehádaj selektory.
 2. Vykonaj kroky scenára. Overuj stav cez **snapshot** (accessibility strom), nie cez screenshoty. Screenshot ukladaj **absolútnou cestou** do \`${stepsDir}\` len pri **kľúčových krokoch** (prihlásenie, každý overovaný výsledok, zlyhanie) — NIE po každej drobnej akcii. Screenshoty slúžia len ako dôkaz do reportu, na rozhodovanie ich nepotrebuješ.
 3. Skontroluj očakávaný výsledok.
+
+## Významové nezhody v názvoch prvkov (pokračuj, ale zaznamenaj)
+- Ak scenár očakáva prvok s určitým názvom (tlačidlo, pole, odkaz, položka menu, záložka…) a v aplikácii nájdeš prvok s **iným, ale významovo rovnakým** názvom (napr. scenár „nájsť školu" vs. realita „vyhľadať školu"), **ber to ako ten istý prvok a pokračuj v teste** — verdikt kvôli tomu neznižuj.
+- Toto platí LEN pre názvy, ktoré majú rovnaký význam/účel (synonymá, iné slovosled, drobná odchýlka textu). Ak sa prvok významovo líši (iná funkcia) alebo úplne chýba, to NIE je významová nezhoda — postupuj štandardne (prípadne \`FAILED\`).
+- Každú takúto nezhodu si zaznamenaj a na koniec do \`result.md\` pridaj sekciu \`## Upozornenia\`, jeden riadok na každú nezhodu vo formáte:
+  \`- <typ prvku>: podľa scenára „<názov v scenári>", v aplikácii „<reálny názov>" — významovo rovnaké, pokračoval som. Odporúčam preveriť.\`
+- Ak žiadne takéto nezhody nie sú, sekciu \`## Upozornenia\` NEVYTVÁRAJ.
 ${platform === 'web' ? `
 ## Efektívna práca s dropdownmi / dlhými zoznamami (DÔLEŽITÉ pre rýchlosť)
 - Ak má dropdown/combobox/listbox možnosť **vyhľadávať/filtrovať** (input na písanie, placeholder „Hľadať…", alebo sa dá písať priamo do poľa), **VŽDY ju využi ako prvú voľbu** — napíš názov hľadanej položky a vyber z filtrovaného výsledku.
@@ -95,7 +102,7 @@ ${platform === 'web' ? `
 - **Zákaz úprav kódu aplikácie** — si len tester, kód needituj ani nenavrhuj commit. Výstupom je iba popis príčiny v reporte.
 
 ## Výstup (absolútne cesty)
-- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie). **Na úplnom konci result.md vždy pridaj:** \`\n\n---\n\n*Tento report a vyššie uvedená analýza pravdepodobnej príčiny boli vygenerované umelou inteligenciou (AI), ktorá môže robiť chyby. Je potrebné skontrolovať a overiť tieto informácie pred akýmkoľvek ďalším použitím alebo rozhodnutím.*\`
+- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Ak nastali významové nezhody v názvoch prvkov (viď vyššie), doplň sekciu \`## Upozornenia\`. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie). **Na úplnom konci result.md vždy pridaj:** \`\n\n---\n\n*Tento report a vyššie uvedená analýza pravdepodobnej príčiny boli vygenerované umelou inteligenciou (AI), ktorá môže robiť chyby. Je potrebné skontrolovať a overiť tieto informácie pred akýmkoľvek ďalším použitím alebo rozhodnutím.*\`
 - \`${path.join(absDir, 'transcript.md')}\` — zoznam MCP akcií.
 - \`${stepsDir}\` — screenshoty krokov.`;
 }
@@ -105,7 +112,7 @@ function buildHandoffQuery(folder: string, absDir: string, platform: Platform, c
     const creds = config.loginRequired && config.username
         ? ` Prihlásenie: používateľ "${config.username}"${password ? `, heslo "${password}"` : ''}.` : '';
     const stepsDir = path.join(absDir, 'steps');
-    return `Over úlohu pomocou ${tool}. Postupuj podľa ${path.join(absDir, 'agent_prompt.md')} a scenára ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Screenshoty a výstupy ukladaj VÝHRADNE ABSOLÚTNYMI cestami (screenshoty do ${stepsDir}). Dokumenty NEOTVÁRAJ cez file: URL — použi nástroj #readReport. Ak test ZLYHÁ, skús nájsť pravdepodobnú príčinu v zdrojovom kóde (najprv v tomto workspace, inak cez Azure DevOps/TFS ak je dostupný) — NIČ neopravuj, len pridaj sekciu "## Pravdepodobná príčina" do result.md. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
+    return `Over úlohu pomocou ${tool}. Postupuj podľa ${path.join(absDir, 'agent_prompt.md')} a scenára ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Screenshoty a výstupy ukladaj VÝHRADNE ABSOLÚTNYMI cestami (screenshoty do ${stepsDir}). Dokumenty NEOTVÁRAJ cez file: URL — použi nástroj #readReport. Ak prvok zo scenára nájdeš pod iným, ale významovo rovnakým názvom (napr. „nájsť školu" vs. „vyhľadať školu"), ber to ako ten istý prvok a POKRAČUJ — nezhodu zapíš do sekcie "## Upozornenia" v result.md a odporuč preveriť. Ak test ZLYHÁ, skús nájsť pravdepodobnú príčinu v zdrojovom kóde (najprv v tomto workspace, inak cez Azure DevOps/TFS ak je dostupný) — NIČ neopravuj, len pridaj sekciu "## Pravdepodobná príčina" do result.md. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
 }
 
 /** Spoločné delegovanie do agent mode pre desktop aj web. */

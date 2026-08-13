@@ -2,6 +2,13 @@
 
 All notable changes to the "TestPilot AI" extension.
 
+## [1.1.0] - 2026-08-13
+
+### Added ✨
+- **Upozornenia na významové nezhody v názvoch prvkov** — keď scenár očakáva prvok s určitým názvom (napr. tlačidlo „nájsť školu") a v aplikácii je významovo rovnaký prvok pod iným názvom (napr. „vyhľadať školu"), agent to berie ako ten istý prvok a **pokračuje v teste** (verdikt kvôli tomu neklesá). Každú takú nezhodu zapíše do `result.md` do sekcie `## Upozornenia` a v reporte sa zobrazí v **oranžovom rámiku** s odporúčaním preveriť (aký názov čakal scenár vs. aký je v realite).
+
+---
+
 ## [1.0.1] - 2026-07-28
 
 ### Changed 🔄

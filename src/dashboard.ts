@@ -126,6 +126,23 @@ function escapeHtml(v: string): string {
     return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/**
+ * Vyseparuje markdown sekciu `## <heading>` z textu: vráti obsah sekcie (bez nadpisu)
+ * a zvyšok textu bez tejto sekcie. Sekcia končí ďalším `## ` nadpisom alebo koncom textu.
+ */
+function extractMdSection(md: string, heading: string): { section: string; rest: string } {
+    const lines = md.split(/\r?\n/);
+    const start = lines.findIndex(l => new RegExp(`^##\\s+${heading}\\b`, 'i').test(l.trim()));
+    if (start < 0) { return { section: '', rest: md.trim() }; }
+    let end = lines.length;
+    for (let i = start + 1; i < lines.length; i++) {
+        if (/^##\s+/.test(lines[i].trim())) { end = i; break; }
+    }
+    const section = lines.slice(start + 1, end).join('\n').trim();
+    const rest = [...lines.slice(0, start), ...lines.slice(end)].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    return { section, rest };
+}
+
 /** Pokus o autodiscovery TFS/Azure DevOps MCP servera v .vscode/mcp.json. */
 function discoverTfsMcp(ws: string): { found: boolean; message: string; org?: string; project?: string } {
     const candidates = [path.join(ws, '.vscode', 'mcp.json'), path.join(ws, 'mcp.json')];
@@ -215,17 +232,25 @@ export function showReportPanel(ws: string, folder: string): void {
     }
     const color = status === 'passed' ? '#2ea043' : status === 'failed' ? '#d1242f' : '#888';
     const badge = status === 'passed' ? '✅ PASSED' : status === 'failed' ? '❌ FAILED' : '❔ N/A';
+    // Vyseparuj sekciu „## Upozornenia" (významové nezhody v názvoch prvkov) — zobrazí sa v oranžovom rámiku.
+    const { section: warnSection, rest: resultRest } = extractMdSection(result, 'Upozornenia');
+    const warnHtml = warnSection
+        ? `<div class="warn"><div class="warn-h">⚠ Upozornenia — významové nezhody</div><div class="warn-b">${escapeHtml(warnSection)}</div></div>`
+        : '';
     const steps = imgs.length ? imgs.map((s, i) => `<div class="step"><div class="h">Krok ${i + 1}: ${escapeHtml(s.cap)}</div><img src="${s.uri}"/></div>`).join('') : '<p class="m">Žiadne screenshoty.</p>';
     const docsHtml = docs.length ? `<h2>Dokumenty</h2><div class="docs">${docs.map(d => `<button class="doc" data-p="${escapeHtml(d.fsPath)}">📄 ${escapeHtml(d.name)}</button>`).join('')}</div>` : '';
     reportPanel.webview.html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 body{font-family:var(--vscode-font-family);padding:16px;color:var(--vscode-foreground)}
 .b{display:inline-block;padding:4px 14px;border-radius:14px;color:#fff;font-weight:600;background:${color}}
 .s{background:var(--vscode-textBlockQuote-background);border-left:3px solid ${color};padding:10px 14px;border-radius:4px;white-space:pre-wrap;font-size:13px}
+.warn{background:rgba(232,137,12,.12);border:1px solid #e8890c;border-left:4px solid #e8890c;border-radius:6px;padding:10px 14px;margin:14px 0}
+.warn-h{color:#e8890c;font-weight:700;font-size:13px;margin-bottom:6px}
+.warn-b{white-space:pre-wrap;font-size:13px}
 .step{margin:14px 0;border:1px solid var(--vscode-panel-border);border-radius:6px;overflow:hidden}.h{padding:8px 12px;background:var(--vscode-editorWidget-background);font-weight:600}.step img{display:block;width:100%}.m{opacity:.6}
 .docs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .doc{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:13px}
 </style></head><body><h1>${escapeHtml(folder)} <span class="b">${badge}</span></h1>
-<div class="s">${escapeHtml(result || 'Report bez obsahu.')}</div>${docsHtml}<h2>Kroky</h2>${steps}
+<div class="s">${escapeHtml(resultRest || 'Report bez obsahu.')}</div>${warnHtml}${docsHtml}<h2>Kroky</h2>${steps}
 <script>const vs=acquireVsCodeApi();document.querySelectorAll('.doc').forEach(b=>b.onclick=()=>vs.postMessage({type:'openDoc',path:b.dataset.p}));</script>
 </body></html>`;
 }

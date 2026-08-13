@@ -16,6 +16,7 @@ AI agent pre VS Code, ktorý **overí opravu bugu alebo test scenár tak, že pr
 - 🔗 **TFS / Azure DevOps** — načítanie pridelených work items a vytvorenie testu priamo z bugu.
 - 📊 **Pekný report** — verdikt PASSED/FAILED + zhrnutie + screenshoty každého kroku (pred každým behom sa `steps/` premaže, takže report obsahuje len aktuálny beh).
 - 🔎 **Analýza príčiny pri zlyhaní** — pri `FAILED` agent skúsi nájsť pravdepodobnú príčinu v kóde (workspace alebo cez TFS/Azure DevOps) a zapíše ju do reportu — bez opravy kódu.
+- ⚠️ **Upozornenia na významové nezhody** — ak sa prvok zo scenára nájde pod iným, ale významovo rovnakým názvom (napr. „nájsť školu" vs. „vyhľadať školu"), test pokračuje a nezhoda sa zaznamená v reporte v oranžovom rámiku s odporúčaním preveriť.
 - ♻️ **Auto‑refresh** — dashboard sa po dokončení testu sám obnoví.
 
 ---

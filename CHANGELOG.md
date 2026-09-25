@@ -2,6 +2,13 @@
 
 All notable changes to the "TestPilot AI" extension.
 
+## [1.1.2] - 2026-09-25
+
+### Fixed 🐛
+- **Navigácia cez viacúrovňové menu** — po zmenách v 1.1.1 agent hľadal rovno cíľovú položku menu (napr. „Prehľad pohybov na konte"), hoci tá sa zobrazí až po kliknutí na nadradenú položku („Konto"), a beh sa zasekol. Pokyn teraz výslovne hovorí, že `browser_find` vidí len práve vyrenderovanú obrazovku, že cestu zo scenára treba prejsť krok za krokom a že prázdny výsledok hľadania neznamená chýbajúci prvok. Týka sa aj záložiek, akordeónov a zatvorených dialógov.
+
+---
+
 ## [1.1.1] - 2026-09-25
 
 ### Changed 🔄

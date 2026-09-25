@@ -84,10 +84,15 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 - Ak žiadne takéto nezhody nie sú, sekciu \`## Upozornenia\` NEVYTVÁRAJ.
 ${platform === 'web' ? `
 ## Rýchle zisťovanie stavu stránky (DÔLEŽITÉ pre rýchlosť)
-Celý \`browser_snapshot\` je najdrahšia operácia. Použi ho len na začiatku a po väčšej zmene obrazovky. Inak:
-- **Hľadáš konkrétny prvok?** použi \`browser_find\` (text alebo regex) — vráti len zhodné uzly s okolím a ich \`ref\`, nie celý strom.
+Celý \`browser_snapshot\` je najdrahšia operácia — nerob ho po každej drobnej akcii. Sprav ho po zmene obrazovky (navigácia, otvorenie dialógu) a medzi tým si pomáhaj lacnejšími nástrojmi:
+- **Hľadáš konkrétny prvok na aktuálnej obrazovke?** použi \`browser_find\` (text alebo regex) — vráti len zhodné uzly s okolím a ich \`ref\`, nie celý strom.
 - **Potrebuješ len časť obrazovky?** použi \`browser_snapshot\` s parametrom \`target\` (ref kontajnera) alebo \`depth\` (obmedzenie hĺbky stromu).
 - **Vypĺňaš viac polí naraz?** použi \`browser_fill_form\` jedným volaním, nie sériu \`browser_type\`.
+
+### Viacúrovňové menu a postupne sa odkrývajúce UI (POZOR)
+- \`browser_find\` vidí **iba to, čo je práve vyrenderované**. Položky v zabalenom menu, neotvorenej záložke, akordeóne alebo zatvorenom dialógu v ňom NIE SÚ.
+- Ak scenár uvádza cestu cez viac úrovní (napr. „Konto a nákupy → Konto → Prehľad pohybov na konte"), **prejdi ju krok za krokom a klikni každú úroveň** v poradí. Nehľadaj rovno poslednú položku — ešte neexistuje.
+- Prázdny výsledok \`browser_find\` **neznamená, že prvok chýba**. Znamená, že nie je na aktuálnej obrazovke: otvor nadradenú úroveň podľa scenára, alebo sprav \`browser_snapshot\` a zorientuj sa. Až keď je prvok zjavne dostupný a naozaj nie je nikde, rieš to ako chybu.
 
 ### Dropdowny a dlhé/virtualizované zoznamy
 - Ak má dropdown/combobox/listbox **vyhľadávanie/filter** (input na písanie, placeholder „Hľadať…", alebo sa dá písať priamo do poľa), **VŽDY ho využi ako prvú voľbu** — napíš názov hľadanej položky a vyber z filtrovaného výsledku.

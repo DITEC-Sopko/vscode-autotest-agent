@@ -2,6 +2,17 @@
 
 All notable changes to the "TestPilot AI" extension.
 
+## [1.1.1] - 2026-09-25
+
+### Changed 🔄
+- **Rýchlejší beh testu (web)** — agent už nemá prechádzať dlhé a virtualizované zoznamy slučkou „posuň → snímka → posuň → snímka". Namiesto toho dostal pokyn hľadať prvky cez `browser_find`, snímať len časť obrazovky (`target`/`depth`), vypĺňať formuláre jedným `browser_fill_form` a obsah dlhého zoznamu získať jedným `browser_evaluate`. Toto skrolovanie bolo v doterajších behoch najväčším žrútom času (jeden test kvôli nemu trval vyše 30 minút). Kliky a výber položiek naďalej prebiehajú reálnou interakciou.
+- **Menší kontext pri každom kroku** — pokyn na hľadanie príčiny zlyhania sa presunul do samostatného `failure_analysis.md`, ktorý agent otvorí až pri verdikte `FAILED`. Odovzdávací príkaz do chatu už neduplikuje pokyny z `agent_prompt.md`.
+
+### Fixed 🐛
+- **Limit krokov agenta sa reálne nastaví** — `chat.agent.maxRequests` sa predtým pri odmietnutí zápisu do workspace nezapísal nikam a beh tak po ~25 krokoch narazil na otázku „Continue to iterate?" a čakal na človeka. Teraz má rovnaký globálny fallback ako auto-schvaľovanie nástrojov a výsledok nastavenia sa vypíše do chatu.
+
+---
+
 ## [1.1.0] - 2026-08-13
 
 ### Added ✨

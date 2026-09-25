@@ -83,36 +83,53 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
   \`- <typ prvku>: podľa scenára „<názov v scenári>", v aplikácii „<reálny názov>" — významovo rovnaké, pokračoval som. Odporúčam preveriť.\`
 - Ak žiadne takéto nezhody nie sú, sekciu \`## Upozornenia\` NEVYTVÁRAJ.
 ${platform === 'web' ? `
-## Efektívna práca s dropdownmi / dlhými zoznamami (DÔLEŽITÉ pre rýchlosť)
-- Ak má dropdown/combobox/listbox možnosť **vyhľadávať/filtrovať** (input na písanie, placeholder „Hľadať…", alebo sa dá písať priamo do poľa), **VŽDY ju využi ako prvú voľbu** — napíš názov hľadanej položky a vyber z filtrovaného výsledku.
-- **Nescrolluj a nesnímaj opakovane snapshot celého dlhého zoznamu**, aby si našiel položku — to je pomalé a míňa kroky. Písanie do filtra zúži zoznam na 1–2 položky ihneď.
-- Až keď dropdown filter naozaj NEMÁ, použi snapshot zoznamu a klik na konkrétnu položku.
+## Rýchle zisťovanie stavu stránky (DÔLEŽITÉ pre rýchlosť)
+Celý \`browser_snapshot\` je najdrahšia operácia. Použi ho len na začiatku a po väčšej zmene obrazovky. Inak:
+- **Hľadáš konkrétny prvok?** použi \`browser_find\` (text alebo regex) — vráti len zhodné uzly s okolím a ich \`ref\`, nie celý strom.
+- **Potrebuješ len časť obrazovky?** použi \`browser_snapshot\` s parametrom \`target\` (ref kontajnera) alebo \`depth\` (obmedzenie hĺbky stromu).
+- **Vypĺňaš viac polí naraz?** použi \`browser_fill_form\` jedným volaním, nie sériu \`browser_type\`.
+
+### Dropdowny a dlhé/virtualizované zoznamy
+- Ak má dropdown/combobox/listbox **vyhľadávanie/filter** (input na písanie, placeholder „Hľadať…", alebo sa dá písať priamo do poľa), **VŽDY ho využi ako prvú voľbu** — napíš názov hľadanej položky a vyber z filtrovaného výsledku.
+- Ak filter NEMÁ a potrebuješ **zistiť obsah celého zoznamu** (napr. overiť, ktoré položky v ňom sú), získaj ho **jedným volaním \`browser_evaluate\`**, ktoré vráti pole textov položiek (napr. \`() => [...document.querySelectorAll('<selektor položky>')].map(e => e.textContent.trim())\`). Pri virtualizovaných zoznamoch najprv zisti kontajner a jeho dátový zdroj.
+- **ZÁKAZ slučky „posuň o kus → snapshot → posuň o kus → snapshot"** na prechádzanie dlhého zoznamu. Je to najčastejšia príčina, prečo test trvá desiatky minút. Ak ti skrolovanie vyjde ako jediná možnosť, sprav ho vo vnútri jedného \`browser_evaluate\` a vráť až výsledok.
+- \`browser_evaluate\` používaj **len na čítanie stavu**. Kliky, písanie a výber položiek rob vždy reálnou interakciou (\`browser_click\`, \`browser_type\`, \`browser_select_option\`) — inak by test overil niečo, čo používateľ v UI nedokáže spraviť.
 ` : ''}
 ## Reporty a dokumenty (PDF/DOCX/XLSX/XML/CSV)
 - **NIKDY neotváraj dokument v prehliadači ani cez „Navigate to a URL" na \`file:\` cestu — Playwright to zablokuje („Access to file: protocol is blocked").**
 - Na overenie obsahu použi nástroj **\`autotest_readReport\`** (#readReport) s ABSOLÚTNOU cestou k súboru — vráti extrahovaný text, ktorý porovnáš s očakávaným výsledkom.
 - Ak appka vygeneruje dokument, ulož aj jeho **screenshot absolútnou cestou do \`${stepsDir}\`**. Stiahnuté/vygenerované súbory sa po dokončení automaticky prenesú do reportu.
 
-## Ak test ZLYHAL — nájdi pravdepodobnú príčinu (NEOPRAVUJ)
-- Keď je verdikt \`FAILED\`, pokús sa nájsť **pravdepodobnú príčinu v zdrojovom kóde** — ale **nič neopravuj**, len ju popíš do reportu.
+## Ak test ZLYHAL
+- Až keď je verdikt \`FAILED\`, prečítaj si \`${path.join(absDir, 'failure_analysis.md')}\` a riaď sa ním. Pri \`PASSED\` tento súbor neotváraj.
+
+## Výstup (absolútne cesty)
+- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Ak nastali významové nezhody v názvoch prvkov (viď vyššie), doplň sekciu \`## Upozornenia\`. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` podľa \`failure_analysis.md\`. **Na úplnom konci result.md vždy pridaj:** \`\n\n---\n\n*Tento report a vyššie uvedená analýza pravdepodobnej príčiny boli vygenerované umelou inteligenciou (AI), ktorá môže robiť chyby. Je potrebné skontrolovať a overiť tieto informácie pred akýmkoľvek ďalším použitím alebo rozhodnutím.*\`
+- \`${path.join(absDir, 'transcript.md')}\` — zoznam MCP akcií.
+- \`${stepsDir}\` — screenshoty krokov.`;
+}
+
+/**
+ * Pokyn na hľadanie príčiny zlyhania. Zámerne v samostatnom súbore — agent ho číta iba pri
+ * `FAILED`, takže pri úspešnom behu nezaťažuje kontext modelu.
+ */
+function buildFailureAnalysisDoc(): string {
+    return `# Ak test ZLYHAL — nájdi pravdepodobnú príčinu (NEOPRAVUJ)
+
+- Pokús sa nájsť **pravdepodobnú príčinu v zdrojovom kóde** — ale **nič neopravuj**, len ju popíš do reportu.
 - Postupuj podľa toho, čo máš k dispozícii:
   1. **Kód priamo v tomto projekte (workspace):** prehľadaj repozitár (hľadanie v súboroch, čítanie súborov) podľa chybovej hlášky, názvov polí/tlačidiel, textov z UI alebo endpointov, ktoré v teste zlyhali.
   2. **Kód v TFS/Azure DevOps:** ak nemáš zdroják v workspace, ale je dostupný Azure DevOps MCP server (nástroje na hľadanie a čítanie kódu v repozitári), vyhľadaj a prečítaj relevantný kód tam.
 - Ak príčinu nájdeš, do \`result.md\` pridaj sekciu **\`## Pravdepodobná príčina\`**: krátky popis, konkrétny súbor/riadok alebo miesto (ak vieš) a prečo to spôsobuje chybu. Ak sa príčinu nepodarí spoľahlivo určiť, napíš to (\`Príčinu sa nepodarilo jednoznačne určiť\`) a uveď, čo si skúmal.
 - **Zákaz úprav kódu aplikácie** — si len tester, kód needituj ani nenavrhuj commit. Výstupom je iba popis príčiny v reporte.
-
-## Výstup (absolútne cesty)
-- \`${path.join(absDir, 'result.md')}\` — prvý riadok \`VERDIKT: PASSED\` alebo \`VERDIKT: FAILED\`, potom krátke zhrnutie. Ak nastali významové nezhody v názvoch prvkov (viď vyššie), doplň sekciu \`## Upozornenia\`. Pri \`FAILED\` doplň sekciu \`## Pravdepodobná príčina\` (viď vyššie). **Na úplnom konci result.md vždy pridaj:** \`\n\n---\n\n*Tento report a vyššie uvedená analýza pravdepodobnej príčiny boli vygenerované umelou inteligenciou (AI), ktorá môže robiť chyby. Je potrebné skontrolovať a overiť tieto informácie pred akýmkoľvek ďalším použitím alebo rozhodnutím.*\`
-- \`${path.join(absDir, 'transcript.md')}\` — zoznam MCP akcií.
-- \`${stepsDir}\` — screenshoty krokov.`;
+`;
 }
 
 function buildHandoffQuery(folder: string, absDir: string, platform: Platform, config: AutotestConfig, password?: string): string {
     const tool = platform === 'desktop' ? 'Terminator MCP (server "terminator")' : 'Playwright MCP (server "playwright")';
     const creds = config.loginRequired && config.username
         ? ` Prihlásenie: používateľ "${config.username}"${password ? `, heslo "${password}"` : ''}.` : '';
-    const stepsDir = path.join(absDir, 'steps');
-    return `Over úlohu pomocou ${tool}. Postupuj podľa ${path.join(absDir, 'agent_prompt.md')} a scenára ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Screenshoty a výstupy ukladaj VÝHRADNE ABSOLÚTNYMI cestami (screenshoty do ${stepsDir}). Dokumenty NEOTVÁRAJ cez file: URL — použi nástroj #readReport. Ak prvok zo scenára nájdeš pod iným, ale významovo rovnakým názvom (napr. „nájsť školu" vs. „vyhľadať školu"), ber to ako ten istý prvok a POKRAČUJ — nezhodu zapíš do sekcie "## Upozornenia" v result.md a odporuč preveriť. Ak test ZLYHÁ, skús nájsť pravdepodobnú príčinu v zdrojovom kóde (najprv v tomto workspace, inak cez Azure DevOps/TFS ak je dostupný) — NIČ neopravuj, len pridaj sekciu "## Pravdepodobná príčina" do result.md. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
+    return `Over úlohu pomocou ${tool}. Najprv si prečítaj ${path.join(absDir, 'agent_prompt.md')} a riaď sa ním ako záväzným pokynom, potom scenár ${path.join(absDir, 'test_scenario.md')}. Aplikácia: ${config.appUrl}.${creds} Riaď aplikáciu priamo cez MCP nástroje. Všetky cesty používaj ABSOLÚTNE. Na konci ulož ${path.join(absDir, 'result.md')} (VERDIKT: PASSED/FAILED) a ${path.join(absDir, 'transcript.md')}.`;
 }
 
 /** Spoločné delegovanie do agent mode pre desktop aj web. */
@@ -137,11 +154,19 @@ export async function delegateToAgentMode(
     if (ensureMcpConfigured(workspacePath, platform, headless)) {
         response.markdown(`🧩 ${platform === 'desktop' ? 'Terminator' : 'Playwright'} MCP nakonfigurovaný v \`.vscode/mcp.json\`.\n\n`);
     }
-    // Vyšší limit krokov agenta (default je nízky → časté „Continue to iterate?").
-    // Scopujeme na TENTO workspace, ostatné projekty ostanú nedotknuté.
+    // Vyšší limit krokov agenta (default je nízky → časté „Continue to iterate?" = beh čaká na človeka).
+    // Skús Workspace scope; ak ho VS Code pre túto voľbu nepovolí, musí sa zapísať globálne —
+    // bez fallbacku sa nezapísal nikam a limit ostal na defaulte.
+    let limitScope = 'len pre tento workspace';
+    let limitOk = true;
     try {
         await vscode.workspace.getConfiguration().update('chat.agent.maxRequests', 100, vscode.ConfigurationTarget.Workspace);
-    } catch { /* ignore */ }
+    } catch {
+        try {
+            await vscode.workspace.getConfiguration().update('chat.agent.maxRequests', 100, vscode.ConfigurationTarget.Global);
+            limitScope = 'globálne';
+        } catch { limitOk = false; }
+    }
     // Auto-schvaľovanie nástrojov: skús najprv Workspace scope (len tento projekt).
     // Ak to VS Code z bezpečnostných dôvodov nepovolí v workspace, fallback na Global.
     let approveScope = 'len pre tento workspace';
@@ -153,9 +178,13 @@ export async function delegateToAgentMode(
             approveScope = 'globálne (workspace scope nie je pre túto bezpečnostnú voľbu povolený)';
         } catch { /* ignore */ }
     }
-    response.markdown(`⚡ Auto-schvaľovanie nástrojov (${approveScope}) a vyšší limit krokov agenta zapnuté. Pri prvom spustení VS Code raz zobrazí bezpečnostný dialóg — potvrď ho, potom sa už nepýta.\n\n`);
+    response.markdown(`⚡ Auto-schvaľovanie nástrojov (${approveScope}) zapnuté. Pri prvom spustení VS Code raz zobrazí bezpečnostný dialóg — potvrď ho, potom sa už nepýta.\n\n`);
+    response.markdown(limitOk
+        ? `🔁 Limit krokov agenta zvýšený na 100 (${limitScope}).\n\n`
+        : `⚠️ Nepodarilo sa zvýšiť \`chat.agent.maxRequests\` — agent sa počas behu môže spýtať „Continue to iterate?". Nastav si ho ručne v Settings.\n\n`);
 
     fs.writeFileSync(path.join(testDir, 'agent_prompt.md'), buildAgentPrompt(folder, testDir, platform, config), 'utf-8');
+    fs.writeFileSync(path.join(testDir, 'failure_analysis.md'), buildFailureAnalysisDoc(), 'utf-8');
     const password = config.loginRequired ? await getLoginPassword(context) : undefined;
     const query = buildHandoffQuery(folder, testDir, platform, config, password);
 

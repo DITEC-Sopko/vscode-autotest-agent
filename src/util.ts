@@ -21,9 +21,23 @@ export async function pickModel(context: vscode.ExtensionContext): Promise<void>
     if (models.length === 0) { vscode.window.showWarningMessage('Žiadny dostupný AI model.'); return; }
     const choice = await vscode.window.showQuickPick(
         models.map(m => ({ label: m.name || m.id, value: m.id })),
-        { placeHolder: 'Vyber AI model na generovanie scenárov', ignoreFocusOut: true }
+        { placeHolder: 'Vyber AI model (generovanie scenárov aj beh testu)', ignoreFocusOut: true }
     );
     if (choice) { await savePreferredCodeModel(context, choice.value); }
+}
+
+/**
+ * Selektor preferovaného modelu pre agent-mode beh.
+ * Vendor+family, nie id — chat.open porovnáva proti internej metadáte, kde sa id líši od toho z `vscode.lm`.
+ */
+export async function getPreferredModelSelector(context: vscode.ExtensionContext): Promise<{ vendor: string; family: string } | undefined> {
+    const cfg = loadConfiguration(context);
+    if (!cfg.preferredCodeModelId) { return undefined; }
+    try {
+        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+        const m = models.find(x => x.id === cfg.preferredCodeModelId);
+        return m?.family ? { vendor: m.vendor, family: m.family } : undefined;
+    } catch { return undefined; }
 }
 
 /** Najbližšie voľné číslo pre manuálny test (test_NNN). */

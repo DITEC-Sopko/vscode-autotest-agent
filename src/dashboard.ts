@@ -295,7 +295,7 @@ button.sec{background:var(--vscode-button-secondaryBackground);color:var(--vscod
 h3{margin:12px 0 6px}
 .sec-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7;margin:4px 0 8px}
 .panel{display:none;border:1px solid var(--vscode-panel-border);border-radius:6px;padding:10px;margin-bottom:10px}
-.panel.open{display:block}.row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.panel.open{display:block}.row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}.hint{opacity:.7;font-size:11px}
 label{font-size:11px;opacity:.8}input,select{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);padding:4px;border-radius:4px;max-width:100%;box-sizing:border-box}
 .chk{flex-direction:row;align-items:center;gap:6px}.chk input{width:auto}
 input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
@@ -324,7 +324,7 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
   <div class="row"><label>Heslo (uloží sa pri vyplnení)</label><input type="password" id="s_pwd"/></div>
  </div>
  <div class="row chk"><input type="checkbox" id="s_head"/><label>Headless (neviditeľný)</label></div>
- <div class="row"><label>AI model</label><select id="s_model"></select></div>
+ <div class="row"><label>AI model</label><select id="s_model"></select><span class="hint">Použije sa na generovanie scenárov aj na samotný beh testu.</span></div>
  <hr style="border-color:var(--vscode-panel-border);width:100%;margin:6px 0 12px"/>
  <div class="sec-h">TFS / Azure DevOps</div>
  <div class="row chk"><input type="checkbox" id="s_tfs"/><label>TFS zapnuté</label></div>

@@ -71,6 +71,12 @@ Otestuj scenár pomocou ${tool}. Riaď aplikáciu priamo cez MCP nástroje, žia
 - Na začiatku napíš 1 vetu: „Spustil som automatický test, ozvem sa len ak niečo potrebujem."
 - Spýtaj sa IBA ak: (a) treba prihlásenie a nemáš údaje, (b) máš niečo vyplniť/vybrať a v scenári to nie je. Inak neprerušuj.
 
+## Rozsah práce — rob LEN to, čo vyžaduje scenár
+- Tvojou úlohou je **overiť scenár**, nič iné. Netestuj varianty navyše, neoveruj súvisiace obrazovky, nehľadaj ďalšie chyby a nenavrhuj vylepšenia.
+- Keď máš dosť dôkazov na verdikt, **skonči a zapíš výsledok**. Každý krok navyše predlžuje beh a míňa kredity.
+- Ak chýba predpoklad (napr. testovacie dáta, nulový zostatok, neexistujúci záznam), sprav **len nevyhnutné minimum**, aby si mohol pokračovať, a zapíš to do \`result.md\` do sekcie \`## Poznámky k behu\`. Neskúšaj viaceré alternatívne cesty — vyber jednu a drž sa jej.
+- Ak sa predpoklad splniť nedá, ukonči test s \`VERDIKT: FAILED\` a popíš, čo chýbalo. Nesnaž sa to obchádzať.
+
 ## Postup
 1. Spusti/pripoj aplikáciu, zisti reálnu štruktúru (snapshot/tree) — nehádaj selektory.
 2. Vykonaj kroky scenára. Overuj stav cez **snapshot** (accessibility strom), nie cez screenshoty. Screenshot ukladaj **absolútnou cestou** do \`${stepsDir}\` len pri **kľúčových krokoch** (prihlásenie, každý overovaný výsledok, zlyhanie) — NIE po každej drobnej akcii. Screenshoty slúžia len ako dôkaz do reportu, na rozhodovanie ich nepotrebuješ.

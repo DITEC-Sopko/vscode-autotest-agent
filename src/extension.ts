@@ -6,7 +6,7 @@ import { TfsClient, LinkedTestCase } from './tfs-client';
 import { getTfsPat } from './config';
 import { runTest, rerunTest, regenerateScenario } from './runner';
 import { runInit, openSettings, setupTfs } from './setup';
-import { pickModel } from './util';
+import { pickModel, getPreferredModelSelector } from './util';
 import { DashboardProvider, launchSignal, dashboardRefreshSignal } from './dashboard';
 import { registerReportTool } from './report';
 import { getBugDescriptionWithClipboardOption, getBugHistory, formatBugHistory } from './bug-input';
@@ -85,7 +85,16 @@ export function activate(context: vscode.ExtensionContext) {
             }
             launchSignal.fire();
             // Beh testu sa spustí v AKTUÁLNEJ Copilot relácii (bez zakladania novej).
-            await vscode.commands.executeCommand('workbench.action.chat.open', { query: arg?.query ?? '', mode: 'agent', isPartialQuery: false });
+            const opts: Record<string, unknown> = { query: arg?.query ?? '', mode: 'agent', isPartialQuery: false };
+            const selector = await getPreferredModelSelector(context);
+            if (selector) { opts.modelSelector = selector; }
+            try {
+                await vscode.commands.executeCommand('workbench.action.chat.open', opts);
+            } catch {
+                // chat.open vyhodí chybu, keď selektoru nezodpovedá žiadny model — dobehni na modeli z chat pickera.
+                delete opts.modelSelector;
+                await vscode.commands.executeCommand('workbench.action.chat.open', opts);
+            }
         }),
         vscode.commands.registerCommand('autotest.fetchTfsBugs', async () => {
             const cfg = loadConfiguration(context);

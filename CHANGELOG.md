@@ -2,6 +2,16 @@
 
 All notable changes to the "TestPilot AI" extension.
 
+## [1.1.3] - 2026-10-02
+
+### Fixed 🐛
+- **Beh testu konečne použije model z nastavení** — doteraz sa model z Nastavení uplatňoval iba pri generovaní scenára a samotný beh išiel na tom, čo bolo zhodou okolností vybraté v Copilot chate. Ak zvolený model nie je dostupný, beh sa spustí na modeli z chatu ako predtým.
+
+### Changed 🔄
+- **Agent už nerobí prácu navyše** — pokyn má novú sekciu o rozsahu práce: overuje sa len to, čo je v scenári, žiadne testovanie variantov navyše ani skúmanie súvisiacich obrazoviek. Ak chýba predpoklad (napr. testovacie dáta), spraví len nevyhnutné minimum a zapíše to do reportu do sekcie `## Poznámky k behu`. Skracuje beh a šetrí kredity.
+
+---
+
 ## [1.1.2] - 2026-09-25
 
 ### Fixed 🐛
